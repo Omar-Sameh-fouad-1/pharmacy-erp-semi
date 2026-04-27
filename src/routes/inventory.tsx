@@ -9,7 +9,6 @@ import { Switch } from "@/components/ui/switch";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { deleteMedicine, upsertMedicine, useStore, uid, type Medicine } from "@/lib/store";
 import { formatMoney, daysUntil, LOW_STOCK_THRESHOLD, NEAR_EXPIRY_DAYS } from "@/lib/constants";
 import { toast } from "sonner";
@@ -18,7 +17,7 @@ export const Route = createFileRoute("/inventory")({ component: InventoryPage })
 
 const empty: Medicine = {
   id: "", name: "", barcode: "", expiryDate: new Date(Date.now() + 365 * 86400000).toISOString().slice(0, 10),
-  quantity: 0, purchasePrice: 0, sellingPrice: 0, requiresPrescription: false, supplierId: null, createdAt: "",
+  quantity: 0, purchasePrice: 0, sellingPrice: 0, requiresPrescription: false, supplierIds: [], createdAt: "",
 };
 
 function InventoryPage() {
@@ -53,14 +52,14 @@ function InventoryPage() {
 
   return (
     <AppShell>
-      <div className="space-y-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="space-y-4 text-right" dir="rtl">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">المخزن</h1>
             <p className="text-sm text-muted-foreground">{medicines.length} صنف مسجل في الكتالوج</p>
           </div>
           <div className="flex gap-2">
-            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="بحث بالاسم أو الباركود..." className="sm:w-72" />
+            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="بحث بالاسم أو الباركود..." className="sm:w-72 text-right" />
             <Button onClick={openNew}>
               <Plus className="ml-2 h-4 w-4" /> إضافة دواء
             </Button>
@@ -78,7 +77,7 @@ function InventoryPage() {
                     <th className="px-4 py-3">الكمية</th>
                     <th className="px-4 py-3">الصلاحية</th>
                     <th className="px-4 py-3">شراء / بيع</th>
-                    <th className="px-4 py-3">المورد</th>
+                    <th className="px-4 py-3">الموردين</th>
                     <th className="px-4 py-3"></th>
                   </tr>
                 </thead>
@@ -88,7 +87,8 @@ function InventoryPage() {
                     const low = m.quantity <= LOW_STOCK_THRESHOLD;
                     const near = days <= NEAR_EXPIRY_DAYS;
                     const expired = days < 0;
-                    const sup = suppliers.find((s) => s.id === m.supplierId);
+                    // تجميع أسماء الموردين
+                    const supNames = m.supplierIds?.map(id => suppliers.find(s => s.id === id)?.name).filter(Boolean).join("، ") || "—";
                     return (
                       <tr key={m.id} className="hover:bg-muted/30">
                         <td className="px-4 py-3">
@@ -108,14 +108,14 @@ function InventoryPage() {
                           {low && <Badge variant="destructive" className="mr-2">نواقص</Badge>}
                         </td>
                         <td className="px-4 py-3">
-                          <div className={expired ? "text-destructive" : near ? "text-warning" : ""}>{m.expiryDate}</div>
+                          <div className={expired ? "text-destructive font-bold" : near ? "text-warning font-semibold" : ""}>{m.expiryDate}</div>
                           <div className="text-xs text-muted-foreground">{expired ? `منتهي من ${Math.abs(days)} يوم` : `باقي ${days} يوم`}</div>
                         </td>
                         <td className="px-4 py-3 text-xs">
                           <div>{formatMoney(m.purchasePrice)}</div>
                           <div className="font-medium text-foreground">{formatMoney(m.sellingPrice)}</div>
                         </td>
-                        <td className="px-4 py-3 text-xs text-muted-foreground">{sup?.name || "—"}</td>
+                        <td className="px-4 py-3 text-xs text-muted-foreground max-w-[150px] truncate" title={supNames}>{supNames}</td>
                         <td className="px-4 py-3">
                           <div className="flex justify-end gap-1">
                             <Button size="icon" variant="ghost" onClick={() => openEdit(m)}><Pencil className="h-4 w-4" /></Button>
@@ -134,7 +134,7 @@ function InventoryPage() {
       </div>
 
       <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) setEditing(null); }}>
-        <DialogContent className="max-w-xl text-right rtl">
+        <DialogContent className="max-w-xl text-right rtl" dir="rtl">
           <DialogHeader>
             <DialogTitle>{editing?.id ? "تعديل بيانات الدواء" : "إضافة دواء جديد"}</DialogTitle>
           </DialogHeader>
@@ -146,7 +146,7 @@ function InventoryPage() {
               </div>
               <div className="space-y-1.5">
                 <Label>الباركود (فريد)</Label>
-                <Input value={editing.barcode} onChange={(e) => setEditing({ ...editing, barcode: e.target.value })} />
+                <Input value={editing.barcode} onChange={(e) => setEditing({ ...editing, barcode: e.target.value })} dir="ltr" className="text-right" />
               </div>
               <div className="space-y-1.5">
                 <Label>تاريخ الصلاحية</Label>
@@ -156,16 +156,30 @@ function InventoryPage() {
                 <Label>الكمية (بالعلبة)</Label>
                 <Input type="number" min={0} value={editing.quantity} onChange={(e) => setEditing({ ...editing, quantity: Number(e.target.value) })} />
               </div>
-              <div className="space-y-1.5">
-                <Label>المورد</Label>
-                <Select value={editing.supplierId || "none"} onValueChange={(v) => setEditing({ ...editing, supplierId: v === "none" ? null : v })}>
-                  <SelectTrigger dir="rtl"><SelectValue placeholder="اختر المورد" /></SelectTrigger>
-                  <SelectContent dir="rtl">
-                    <SelectItem value="none">بدون مورد</SelectItem>
-                    {suppliers.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+              
+              {/* ← تعديل الموردين المتعددين */}
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label>الموردين (يمكن اختيار أكثر من مورد)</Label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 border border-border p-3 rounded-md bg-muted/20 max-h-32 overflow-y-auto">
+                  {suppliers.map((s) => (
+                    <label key={s.id} className="flex items-center gap-2 cursor-pointer hover:bg-muted/50 p-1 rounded">
+                      <input 
+                        type="checkbox" 
+                        className="w-4 h-4 rounded border-gray-300 text-primary"
+                        checked={(editing.supplierIds || []).includes(s.id)}
+                        onChange={(e) => {
+                           const current = editing.supplierIds || [];
+                           const updated = e.target.checked ? [...current, s.id] : current.filter(id => id !== s.id);
+                           setEditing({ ...editing, supplierIds: updated });
+                        }}
+                      />
+                      <span className="text-sm">{s.name}</span>
+                    </label>
+                  ))}
+                  {suppliers.length === 0 && <span className="text-xs text-muted-foreground">لا يوجد موردين مسجلين</span>}
+                </div>
               </div>
+
               <div className="space-y-1.5">
                 <Label>سعر الشراء</Label>
                 <Input type="number" min={0} step="0.01" value={editing.purchasePrice} onChange={(e) => setEditing({ ...editing, purchasePrice: Number(e.target.value) })} />
@@ -191,7 +205,7 @@ function InventoryPage() {
       </Dialog>
 
       <Dialog open={!!confirmDel} onOpenChange={(v) => !v && setConfirmDel(null)}>
-        <DialogContent className="text-right rtl">
+        <DialogContent className="text-right rtl" dir="rtl">
           <DialogHeader>
             <DialogTitle>حذف {confirmDel?.name}؟</DialogTitle>
           </DialogHeader>

@@ -22,7 +22,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { findMedicineByBarcode, recordSale, useStore, type SaleItem, type PaymentMethod, type Medicine, type Sale } from "@/lib/store";
-import { CURRENCY, formatMoney } from "@/lib/constants";
+import { CURRENCY, formatMoney, daysUntil } from "@/lib/constants";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/pos")({ component: PosPage });
@@ -55,15 +55,22 @@ function PosPage() {
   }, [pendingRx, invoiceData]);
 
   const addToCart = (med: Medicine) => {
+    // ← التحقق من تاريخ الصلاحية لمنع المنتهي
+    if (daysUntil(med.expiryDate) < 0) {
+       toast.error(`ممنوع البيع: الدواء "${med.name}" منتهي الصلاحية!`);
+       return;
+    }
+
     if (med.quantity <= 0) {
       toast.error(`الدواء ${med.name} نفد من المخزون`);
       return;
     }
+
     setCart((c) => {
       const existing = c.find((l) => l.medicineId === med.id);
       if (existing) {
         if (existing.qty + 1 > med.quantity) {
-          toast.error(`المتاح فقط ${med.quantity} علبة`);
+          toast.error(`المتاح فقط ${med.quantity} علبة من ${med.name}`);
           return c;
         }
         return c.map((l) => (l.medicineId === med.id ? { ...l, qty: l.qty + 1 } : l));
@@ -120,9 +127,7 @@ function PosPage() {
 
   const updateQty = (id: string, delta: number) => {
     setCart((c) =>
-      c
-        .map((l) => (l.medicineId === id ? { ...l, qty: l.qty + delta } : l))
-        .filter((l) => l.qty > 0),
+      c.map((l) => (l.medicineId === id ? { ...l, qty: l.qty + delta } : l)).filter((l) => l.qty > 0)
     );
   };
 
@@ -151,7 +156,7 @@ function PosPage() {
         }
       `}</style>
 
-      <div className="grid gap-4 lg:grid-cols-[1fr_400px] text-right rtl">
+      <div className="grid gap-4 lg:grid-cols-[1fr_400px] text-right rtl" dir="rtl">
         <div className="space-y-4">
           <Card className="border-primary/30">
             <CardHeader>
@@ -176,9 +181,7 @@ function PosPage() {
               {scannerError && (
                 <div className="flex items-center justify-between gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive flex-row-reverse">
                   <span>{scannerError}</span>
-                  <Button size="sm" variant="ghost" onClick={() => setScannerError("")}>
-                    إغلاق
-                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => setScannerError("")}>إغلاق</Button>
                 </div>
               )}
             </CardContent>
@@ -198,45 +201,37 @@ function PosPage() {
               />
               {filtered.length > 0 && (
                 <ul className="divide-y divide-border rounded-md border border-border">
-                  {filtered.map((m) => (
-                    <li key={m.id} className="flex items-center justify-between p-3 text-sm flex-row-reverse">
+                  {filtered.map((m) => {
+                    const isExpired = daysUntil(m.expiryDate) < 0;
+                    return (
+                    <li key={m.id} className={`flex items-center justify-between p-3 text-sm flex-row-reverse ${isExpired ? 'bg-destructive/10 opacity-70' : ''}`}>
                       <div className="text-right">
-                        <div className="font-medium">{m.name}</div>
+                        <div className={`font-medium ${isExpired ? 'text-destructive' : ''}`}>{m.name}</div>
                         <div className="text-xs text-muted-foreground">
                           {m.barcode} · {m.quantity} علبة · {formatMoney(m.sellingPrice)}
                         </div>
+                        {isExpired && <span className="text-[10px] text-destructive font-bold">منتهي الصلاحية</span>}
                       </div>
                       <div className="flex items-center gap-2 flex-row-reverse">
                         {m.requiresPrescription && (
-                          <Badge variant="outline" className="border-warning/50 text-warning">
-                            روشتة
-                          </Badge>
+                          <Badge variant="outline" className="border-warning/50 text-warning">روشتة</Badge>
                         )}
-                        <Button
-                          size="sm"
-                          onClick={() => {
-                            if (m.requiresPrescription) setPendingRx(m);
-                            else addToCart(m);
-                          }}
-                        >
+                        <Button size="sm" variant={isExpired ? "destructive" : "default"} onClick={() => { if (m.requiresPrescription) setPendingRx(m); else addToCart(m); }}>
                           إضافة
                         </Button>
                       </div>
                     </li>
-                  ))}
+                  )})}
                 </ul>
               )}
             </CardContent>
           </Card>
         </div>
 
-        {/* Cart */}
         <Card className="flex h-[calc(100vh-9rem)] flex-col">
           <CardHeader>
             <CardTitle className="flex items-center justify-between text-base flex-row-reverse">
-              <span className="flex items-center gap-2">
-                 سلة المشتريات <ShoppingCart className="h-5 w-5" />
-              </span>
+              <span className="flex items-center gap-2">سلة المشتريات <ShoppingCart className="h-5 w-5" /></span>
               <Badge variant="secondary">{cart.length} أصناف</Badge>
             </CardTitle>
           </CardHeader>
@@ -250,44 +245,24 @@ function PosPage() {
               ) : (
                 <ul className="space-y-2">
                   {cart.map((l) => (
-                    <li
-                      key={l.medicineId}
-                      className="rounded-lg border border-border bg-muted/30 p-3"
-                    >
+                    <li key={l.medicineId} className="rounded-lg border border-border bg-muted/30 p-3">
                       <div className="flex items-start justify-between gap-2 flex-row-reverse">
                         <div className="min-w-0 flex-1 text-right">
                           <div className="flex items-center justify-end gap-2">
                             <span className="truncate text-sm font-medium">{l.medicineName}</span>
-                            {l.requiresPrescription && (
-                              <Badge variant="outline" className="border-warning/50 text-warning">
-                                روشتة
-                              </Badge>
-                            )}
+                            {l.requiresPrescription && <Badge variant="outline" className="border-warning/50 text-warning">روشتة</Badge>}
                           </div>
-                          <div className="mt-0.5 text-xs text-muted-foreground">
-                            {formatMoney(l.unitPrice)} × {l.qty}
-                          </div>
+                          <div className="mt-0.5 text-xs text-muted-foreground">{formatMoney(l.unitPrice)} × {l.qty}</div>
                         </div>
                         <div className="text-sm font-semibold text-left">{formatMoney(l.qty * l.unitPrice)}</div>
                       </div>
                       <div className="mt-2 flex items-center justify-between flex-row-reverse">
                         <div className="flex items-center gap-1 flex-row-reverse">
-                          <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => updateQty(l.medicineId, 1)}>
-                            <Plus className="h-3 w-3" />
-                          </Button>
+                          <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => updateQty(l.medicineId, 1)}><Plus className="h-3 w-3" /></Button>
                           <span className="w-8 text-center text-sm">{l.qty}</span>
-                          <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => updateQty(l.medicineId, -1)}>
-                            <Minus className="h-3 w-3" />
-                          </Button>
+                          <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => updateQty(l.medicineId, -1)}><Minus className="h-3 w-3" /></Button>
                         </div>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                          onClick={() =>
-                            setCart((c) => c.filter((x) => x.medicineId !== l.medicineId))
-                          }
-                        >
+                        <Button size="sm" variant="ghost" className="text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => setCart((c) => c.filter((x) => x.medicineId !== l.medicineId))}>
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
                       </div>
@@ -311,12 +286,7 @@ function PosPage() {
                   <SelectItem value="insurance">تأمين طبي</SelectItem>
                 </SelectContent>
               </Select>
-              <Button
-                className="w-full"
-                size="lg"
-                disabled={cart.length === 0}
-                onClick={checkout}
-              >
+              <Button className="w-full" size="lg" disabled={cart.length === 0} onClick={checkout}>
                 دفع {formatMoney(total)}
               </Button>
             </div>
@@ -325,10 +295,7 @@ function PosPage() {
       </div>
 
       <Dialog open={!!invoiceData} onOpenChange={(open) => {
-          if (!open) {
-              setInvoiceData(null);
-              setTimeout(() => inputRef.current?.focus(), 100);
-          }
+          if (!open) { setInvoiceData(null); setTimeout(() => inputRef.current?.focus(), 100); }
       }}>
         <DialogContent className="sm:max-w-md text-right rtl" dir="rtl">
           <DialogHeader className="print:hidden flex items-center justify-center flex-col space-y-2">
@@ -365,9 +332,7 @@ function PosPage() {
           </div>
 
           <DialogFooter className="print:hidden flex-row-reverse justify-between mt-4">
-            <Button variant="outline" onClick={() => setInvoiceData(null)}>
-              طلب جديد
-            </Button>
+            <Button variant="outline" onClick={() => setInvoiceData(null)}>طلب جديد</Button>
             <Button onClick={() => window.print()} className="gap-2 bg-blue-600 hover:bg-blue-700 text-white flex-row-reverse">
               طباعة الفاتورة <Printer className="w-4 h-4" /> 
             </Button>
@@ -382,21 +347,12 @@ function PosPage() {
                مطلوب روشتة طبية <AlertTriangle className="h-5 w-5 text-warning" />
             </DialogTitle>
             <DialogDescription className="text-right">
-              الدواء <strong>{pendingRx?.name}</strong> يتطلب وصفة طبية صالحة (روشتة). يرجى التحقق من الروشتة قبل إتمام عملية البيع.
+              الدواء <strong>{pendingRx?.name}</strong> يتطلب وصفة طبية صالحة. يرجى التحقق من الروشتة قبل البيع.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="flex-row-reverse gap-2">
-            <Button
-              onClick={() => {
-                if (pendingRx) addToCart(pendingRx);
-                setPendingRx(null);
-              }}
-            >
-              تم التحقق — إضافة للسلة
-            </Button>
-            <Button variant="outline" onClick={() => setPendingRx(null)}>
-              إلغاء
-            </Button>
+            <Button onClick={() => { if (pendingRx) addToCart(pendingRx); setPendingRx(null); }}>تم التحقق — إضافة للسلة</Button>
+            <Button variant="outline" onClick={() => setPendingRx(null)}>إلغاء</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
