@@ -18,7 +18,7 @@ function AuditPage() {
   const navigate = useNavigate();
   const logs = useStore((s) => s.auditLogs);
   const sales = useStore((s) => s.sales);
-  const returns = useStore((s) => s.returns || []);
+  const returns = useStore((s) => s.returns || [];
   const users = useStore((s) => s.users);
   const currentUserId = useStore((s) => s.currentUserId);
   const me = users.find((u) => u.id === currentUserId);
