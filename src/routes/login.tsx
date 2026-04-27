@@ -27,7 +27,7 @@ function LoginPage() {
   const navigate = useNavigate();
   const currentUserId = useStore((s) => s.currentUserId);
   const security = useStore((s) => s.managerSecurity);
-  const users = useStore((s) => s.users); // سحب قائمة المستخدمين للتحقق قبل الدخول
+  const users = useStore((s) => s.users); 
   
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -58,28 +58,27 @@ function LoginPage() {
     e.preventDefault();
     setError("");
     
-    // 1. البحث عن المستخدم في البيانات المحلية لمعرفة رتبته (Role)
     const targetUser = users.find(u => u.username.toLowerCase() === username.trim().toLowerCase());
     
+    // لو اليوزر مش موجود أو الباسورد هتكون غلط، نخليه ينفذ اللوجين العادي عشان تطلعله الرسالة الحمراء
     if (!targetUser) {
-      // لو اليوزر مش موجود أصلاً، بنفذ الدخول عشان يظهر خطأ "بيانات غير صحيحة" المعتاد
       executeLogin();
       return;
     }
 
-    // 2. التحقق: هل هو مدير (Admin)؟
+    // 1. لو مدير، يخش طلقة من غير لوكيشن
     if (targetUser.role === "admin") {
-      // لو مدير، يدخل فوراً بالباسورد فقط
       executeLogin();
       return;
     }
 
-    // 3. لو موظف (Employee)، نبدأ فحص الموقع الجغرافي
+    // 2. لو موظف، نتأكد إن المدير حطله لوكيشن
     if (!targetUser.allowedLat || !targetUser.allowedLng) {
       setError("لم يتم تحديد موقع عمل لك من قبل الإدارة. يرجى مراجعة المدير.");
       return;
     }
 
+    // 3. الموظف ليه لوكيشن.. نفحص مكانه
     if ("geolocation" in navigator) {
       setCheckingLocation(true);
       navigator.geolocation.getCurrentPosition(
@@ -97,14 +96,14 @@ function LoginPage() {
              return;
           }
           
-          // الموقع سليم، يتم تسجيل الدخول
+          // لو جوا النطاق، يكمل تسجيل الدخول
           executeLogin();
         },
         () => {
           setCheckingLocation(false);
           setError("يرجى تفعيل صلاحيات الموقع (Location) للسماح للموظفين بالدخول.");
         },
-        { enableHighAccuracy: true } // طلب دقة عالية للموقع
+        { enableHighAccuracy: true } 
       );
     } else {
       setError("متصفحك لا يدعم خاصية تحديد الموقع.");
