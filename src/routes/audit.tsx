@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { useStore, processReturn, type Sale, type AuditLog } from "@/lib/store";
+import { useStore, processReturn, processItemReturn, type Sale, type AuditLog } from "@/lib/store";
 import { formatMoney } from "@/lib/constants";
 import { toast } from "sonner";
 
@@ -18,7 +18,7 @@ function AuditPage() {
   const navigate = useNavigate();
   const logs = useStore((s) => s.auditLogs);
   const sales = useStore((s) => s.sales);
-  const returns = useStore((s) => s.returns || []); // استدعاء المرتجعات
+  const returns = useStore((s) => s.returns || []);
   const users = useStore((s) => s.users);
   const currentUserId = useStore((s) => s.currentUserId);
   const me = users.find((u) => u.id === currentUserId);
@@ -55,19 +55,43 @@ function AuditPage() {
 
   const totalRevenue = filteredSales.reduce((acc, sale) => acc + sale.total, 0);
 
-  // دالة المرتجعات
-  const handleReturnSale = () => {
+  // دالة الإرجاع الجزئي (صنف معين)
+  const handleReturnItem = (medicineId: string, medicineName: string) => {
     if (!selectedSale) return;
-    if (confirm("هل أنت متأكد من إرجاع هذه الفاتورة للمخزن؟ سيتم خصم قيمتها من المبيعات وتعديل مخزون الأدوية.")) {
-       const res = processReturn(selectedSale.id);
+    if (confirm(`هل أنت متأكد من إرجاع الصنف "${medicineName}" للمخزن؟ سيتم خصمه من إجمالي الفاتورة.`)) {
+       const res = processItemReturn(selectedSale.id, medicineId);
        if (res.ok) {
+          toast.success(`تم إرجاع "${medicineName}" بنجاح`);
+          const updatedItems = selectedSale.items.filter(i => i.medicineId !== medicineId);
+          if (updatedItems.length === 0) {
+            setSelectedSale(null); // قفل الفاتورة لو دي كانت آخر حاجة فيها
+          } else {
+            const itemToReturn = selectedSale.items.find(i => i.medicineId === medicineId)!;
+            setSelectedSale({
+              ...selectedSale,
+              items: updatedItems,
+              total: selectedSale.total - (itemToReturn.qty * itemToReturn.unitPrice)
+            });
+          }
+       } else {
+          toast.error(res.error);
+       }
+    }
+  };
+
+  // دالة إرجاع الفاتورة كاملة
+  const handleReturnFullSale = () => {
+    if(!selectedSale) return;
+    if(confirm("هل أنت متأكد من إرجاع هذه الفاتورة بالكامل للمخزن؟")){
+       const res = processReturn(selectedSale.id);
+       if(res.ok) {
           toast.success("تم إرجاع الفاتورة للمخزن بنجاح");
           setSelectedSale(null);
        } else {
           toast.error(res.error);
        }
     }
-  };
+  }
 
   return (
     <AppShell>
@@ -184,24 +208,39 @@ function AuditPage() {
               <p className="mt-1 text-gray-500">رقم: #{selectedSale?.id.replace('sale_', '')}</p>
               <p className="text-gray-500">{selectedSale?.ts && new Date(selectedSale.ts).toLocaleString('ar-EG')}</p>
             </div>
-            <div className="space-y-1 mb-4">
+            
+            <div className="space-y-3 mb-4">
               {selectedSale?.items.map((item, idx) => (
-                <div key={idx} className="flex justify-between flex-row-reverse">
-                  <span>{item.qty}x {item.medicineName}</span>
-                  <span>{formatMoney(item.qty * item.unitPrice)}</span>
+                <div key={idx} className="flex justify-between items-center flex-row-reverse border-b border-dashed border-gray-200 pb-2 last:border-0">
+                  <div className="text-right">
+                    <div className="font-bold text-sm">{item.qty}x {item.medicineName}</div>
+                    <div className="text-[10px] text-gray-500 mt-0.5">{formatMoney(item.unitPrice)} للوحدة</div>
+                  </div>
+                  <div className="flex items-center gap-3 flex-row-reverse">
+                    <span className="font-semibold">{formatMoney(item.qty * item.unitPrice)}</span>
+                    <Button 
+                      variant="destructive" 
+                      size="sm" 
+                      className="h-6 px-2 text-[10px] print:hidden gap-1 flex-row-reverse"
+                      onClick={() => handleReturnItem(item.medicineId, item.medicineName)}
+                    >
+                      إرجاع <Undo2 className="w-3 h-3" />
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>
+
             <div className="border-t border-dashed border-gray-300 pt-4 font-bold flex justify-between flex-row-reverse">
               <span>الإجمالي</span>
               <span>{selectedSale && formatMoney(selectedSale.total)}</span>
             </div>
             <div className="mt-4 text-center text-[10px] text-gray-500">الكاشير: {selectedSale?.cashierName}</div>
           </div>
-          <DialogFooter className="print:hidden flex-row-reverse justify-between">
+          <DialogFooter className="print:hidden flex-row-reverse justify-between mt-4">
              {selectedSale && !returns.some((r:any) => r.saleId === selectedSale.id) && (
-               <Button variant="destructive" onClick={handleReturnSale} className="gap-2 flex-row-reverse">
-                 إرجاع للمخزن <Undo2 className="w-4 h-4" />
+               <Button variant="outline" className="text-destructive hover:bg-destructive/10" onClick={handleReturnFullSale}>
+                 إرجاع كل الفاتورة
                </Button>
             )}
             <Button onClick={() => window.print()} className="gap-2 flex-row-reverse"><Printer className="w-4 h-4" /> طباعة</Button>
@@ -235,8 +274,8 @@ function LogList({ items, type, onPrint, icon }: any) {
                   )}
                 </div>
               </div>
-              <div className="flex items-center gap-4">
-                <div className="text-left">
+              <div className="flex items-center gap-4 text-right">
+                <div>
                     <div className={`text-sm font-bold ${type === 'returns' ? 'text-destructive' : 'text-foreground'}`} dir="ltr">
                       {type === 'sales' ? formatMoney(item.total) : type === 'returns' ? formatMoney(item.totalRefund) : ''}
                     </div>
