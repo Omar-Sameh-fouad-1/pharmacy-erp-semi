@@ -16,7 +16,7 @@ import {
   ShieldAlert,
   Menu,
   X,
-  ReceiptText, // ← أيقونة المبيعات الجديدة
+  ReceiptText,
 } from "lucide-react";
 import { computeAlerts, getCurrentUser, logout, setTheme, useStore } from "@/lib/store";
 import { PHARMACY_NAME } from "@/lib/constants";
@@ -44,13 +44,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const user = useMemo(() => users.find((u) => u.id === currentUserId) || null, [users, currentUserId]);
 
   useEffect(() => {
-    // Redirect unauthenticated users to /login
     if (!currentUserId && location.pathname !== "/login") {
       navigate({ to: "/login" });
     }
   }, [currentUserId, location.pathname, navigate]);
 
-  // Recompute alerts whenever medicines change
   const alerts = useMemo(() => {
     void medicines;
     return computeAlerts();
@@ -59,28 +57,29 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const urgentCount = alerts.filter((a) => a.urgent).length;
 
   const nav: NavItem[] = [
-    { to: "/", label: "Dashboard", icon: LayoutDashboard },
-    { to: "/pos", label: "POS / Sell", icon: ScanBarcode },
-    { to: "/inventory", label: "Inventory", icon: Pill },
-    { to: "/suppliers", label: "Suppliers", icon: Truck },
-    { to: "/search", label: "Search", icon: Search },
-    { to: "/reports", label: "Reports", icon: BarChart3 },
-    { to: "/notifications", label: "Notifications", icon: Bell, badge: urgentCount || undefined },
-    { to: "/users", label: "Users", icon: UsersIcon, adminOnly: true },
-    { to: "/audit", label: "Management Hub", icon: ShieldAlert, adminOnly: true }, // ← تغيير الاسم هنا
-    { to: "/settings", label: "Settings", icon: Settings },
+    { to: "/", label: "لوحة التحكم", icon: LayoutDashboard },
+    { to: "/pos", label: "الكاشير / بيع", icon: ScanBarcode },
+    { to: "/inventory", label: "المخزن", icon: Pill },
+    { to: "/suppliers", label: "الموردين", icon: Truck },
+    { to: "/search", label: "بحث", icon: Search },
+    { to: "/reports", label: "التقارير", icon: BarChart3 },
+    { to: "/notifications", label: "الإشعارات", icon: Bell, badge: urgentCount || undefined },
+    { to: "/users", label: "المستخدمين", icon: UsersIcon, adminOnly: true },
+    { to: "/audit", label: "المعاملات اليومية", icon: ShieldAlert, adminOnly: true },
+    { to: "/settings", label: "الإعدادات", icon: Settings },
   ];
 
   if (!user) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background text-foreground">
-        <p className="text-muted-foreground">Redirecting…</p>
+      <div className="flex min-h-screen items-center justify-center bg-background text-foreground" dir="rtl">
+        <p className="text-muted-foreground">جاري التحويل...</p>
       </div>
     );
   }
 
   const Sidebar = (
-    <aside className="flex h-full w-64 flex-col border-r border-sidebar-border bg-sidebar print:hidden"> {/* ← ضفنا print:hidden */}
+    // لاحظ غيرنا border-r لـ border-l عشان السايد بار في اليمين
+    <aside className="flex h-full w-64 flex-col border-l border-sidebar-border bg-sidebar print:hidden">
       <div className="flex h-16 items-center gap-2 border-b border-sidebar-border px-5">
         <div
           className="flex h-9 w-9 items-center justify-center rounded-lg text-primary-foreground"
@@ -89,8 +88,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <Pill className="h-5 w-5" />
         </div>
         <div className="leading-tight">
-          <div className="text-sm font-semibold text-sidebar-foreground">CarePlus</div>
-          <div className="text-xs text-muted-foreground">Pharmacy ERP</div>
+          <div className="text-sm font-semibold text-sidebar-foreground">{PHARMACY_NAME}</div>
+          <div className="text-xs text-muted-foreground">إدارة الصيدليات</div>
         </div>
       </div>
       <nav className="flex-1 overflow-y-auto px-3 py-4">
@@ -132,27 +131,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
           <div className="min-w-0 flex-1">
             <div className="truncate text-sm font-medium text-sidebar-foreground">{user.fullName}</div>
-            <div className="truncate text-xs uppercase tracking-wide text-muted-foreground">{user.role}</div>
+            <div className="truncate text-xs uppercase tracking-wide text-muted-foreground">
+              {user.role === 'admin' ? 'مدير' : 'صيدلي'}
+            </div>
           </div>
         </div>
         <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className="flex-1"
-            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-          >
+          <Button variant="outline" size="sm" className="flex-1" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>
             {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="flex-1"
-            onClick={() => {
-              logout();
-              navigate({ to: "/login" });
-            }}
-          >
+          <Button variant="outline" size="sm" className="flex-1" onClick={() => { logout(); navigate({ to: "/login" }); }}>
             <LogOut className="h-4 w-4" />
           </Button>
         </div>
@@ -161,48 +149,38 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <div className="flex min-h-screen bg-background text-foreground">
-      {/* Desktop sidebar */}
-      <div className="hidden md:block print:hidden">{Sidebar}</div> {/* ← ضفنا print:hidden */}
+    // ضفنا dir="rtl" للبروجكت كله من هنا
+    <div className="flex min-h-screen bg-background text-foreground text-right" dir="rtl">
+      <div className="hidden md:block print:hidden">{Sidebar}</div>
 
-      {/* Mobile sidebar drawer */}
       {mobileOpen && (
-        <div className="fixed inset-0 z-50 md:hidden print:hidden"> {/* ← ضفنا print:hidden */}
+        <div className="fixed inset-0 z-50 md:hidden print:hidden">
           <div className="absolute inset-0 bg-black/60" onClick={() => setMobileOpen(false)} />
-          <div className="absolute inset-y-0 left-0">{Sidebar}</div>
+          <div className="absolute inset-y-0 right-0">{Sidebar}</div>
         </div>
       )}
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b border-border bg-background/80 px-4 backdrop-blur md:px-6 print:hidden"> {/* ← ضفنا print:hidden */}
+        <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b border-border bg-background/80 px-4 backdrop-blur md:px-6 print:hidden">
           <div className="flex items-center gap-3">
-            <button
-              className="rounded-md p-2 text-muted-foreground hover:bg-muted md:hidden"
-              onClick={() => setMobileOpen((v) => !v)}
-              aria-label="Toggle menu"
-            >
+            <button className="rounded-md p-2 text-muted-foreground hover:bg-muted md:hidden" onClick={() => setMobileOpen((v) => !v)}>
               {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
             <div>
-              <div className="text-xs uppercase tracking-widest text-muted-foreground">{PHARMACY_NAME}</div>
+              <div className="text-xs tracking-widest text-muted-foreground">{PHARMACY_NAME}</div>
               <div className="text-sm font-semibold">
-                {nav.find((n) => n.to === location.pathname)?.label || "Dashboard"}
+                {nav.find((n) => n.to === location.pathname)?.label || "لوحة التحكم"}
               </div>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Link
-              to="/notifications"
-              className="relative rounded-md p-2 text-muted-foreground hover:bg-muted hover:text-foreground"
-            >
+            <Link to="/notifications" className="relative rounded-md p-2 text-muted-foreground hover:bg-muted hover:text-foreground">
               <Bell className="h-5 w-5" />
-              {urgentCount > 0 && (
-                <span className="absolute right-1 top-1 flex h-2 w-2 rounded-full bg-destructive" />
-              )}
+              {urgentCount > 0 && <span className="absolute left-1 top-1 flex h-2 w-2 rounded-full bg-destructive" />}
             </Link>
           </div>
         </header>
-        <main className="min-w-0 flex-1 p-4 md:p-6 print:p-0 print:m-0">{children}</main> {/* ← ضفنا print:p-0 print:m-0 */}
+        <main className="min-w-0 flex-1 p-4 md:p-6 print:p-0 print:m-0">{children}</main>
       </div>
     </div>
   );

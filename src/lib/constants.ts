@@ -1,5 +1,5 @@
-export const PHARMACY_NAME = "CarePlus Pharmacy";
-export const CURRENCY = "EGP";
+export const PHARMACY_NAME = "صيدلية كير بلس";
+export const CURRENCY = "ج.م";
 export const LOW_STOCK_THRESHOLD = 10;
 export const NEAR_EXPIRY_DAYS = 30;
 

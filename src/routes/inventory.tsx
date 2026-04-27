@@ -8,20 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { deleteMedicine, upsertMedicine, useStore, uid, type Medicine } from "@/lib/store";
 import { formatMoney, daysUntil, LOW_STOCK_THRESHOLD, NEAR_EXPIRY_DAYS } from "@/lib/constants";
 import { toast } from "sonner";
@@ -29,16 +17,8 @@ import { toast } from "sonner";
 export const Route = createFileRoute("/inventory")({ component: InventoryPage });
 
 const empty: Medicine = {
-  id: "",
-  name: "",
-  barcode: "",
-  expiryDate: new Date(Date.now() + 365 * 86400000).toISOString().slice(0, 10),
-  quantity: 0,
-  purchasePrice: 0,
-  sellingPrice: 0,
-  requiresPrescription: false,
-  supplierId: null,
-  createdAt: "",
+  id: "", name: "", barcode: "", expiryDate: new Date(Date.now() + 365 * 86400000).toISOString().slice(0, 10),
+  quantity: 0, purchasePrice: 0, sellingPrice: 0, requiresPrescription: false, supplierId: null, createdAt: "",
 };
 
 function InventoryPage() {
@@ -56,31 +36,19 @@ function InventoryPage() {
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [medicines, search]);
 
-  const openNew = () => {
-    setEditing({ ...empty });
-    setOpen(true);
-  };
-
-  const openEdit = (m: Medicine) => {
-    setEditing({ ...m });
-    setOpen(true);
-  };
+  const openNew = () => { setEditing({ ...empty }); setOpen(true); };
+  const openEdit = (m: Medicine) => { setEditing({ ...m }); setOpen(true); };
 
   const save = () => {
     if (!editing) return;
-    if (!editing.name.trim()) return toast.error("Name required");
-    if (!editing.barcode.trim()) return toast.error("Barcode required");
-    if (editing.quantity < 0) return toast.error("Quantity invalid");
-    const med: Medicine = {
-      ...editing,
-      id: editing.id || uid("m_"),
-      createdAt: editing.createdAt || new Date().toISOString(),
-    };
+    if (!editing.name.trim()) return toast.error("اسم الدواء مطلوب");
+    if (!editing.barcode.trim()) return toast.error("الباركود مطلوب");
+    if (editing.quantity < 0) return toast.error("الكمية غير صحيحة");
+    const med: Medicine = { ...editing, id: editing.id || uid("m_"), createdAt: editing.createdAt || new Date().toISOString() };
     const res = upsertMedicine(med);
-    if (!res.ok) return toast.error(res.error || "Failed");
-    toast.success(`${med.name} saved`);
-    setOpen(false);
-    setEditing(null);
+    if (!res.ok) return toast.error(res.error || "حدث خطأ");
+    toast.success(`تم حفظ ${med.name}`);
+    setOpen(false); setEditing(null);
   };
 
   return (
@@ -88,18 +56,13 @@ function InventoryPage() {
       <div className="space-y-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">Inventory</h1>
-            <p className="text-sm text-muted-foreground">{medicines.length} medicines in catalog</p>
+            <h1 className="text-2xl font-bold tracking-tight">المخزن</h1>
+            <p className="text-sm text-muted-foreground">{medicines.length} صنف مسجل في الكتالوج</p>
           </div>
           <div className="flex gap-2">
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by name or barcode…"
-              className="sm:w-72"
-            />
+            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="بحث بالاسم أو الباركود..." className="sm:w-72" />
             <Button onClick={openNew}>
-              <Plus className="mr-2 h-4 w-4" /> Add Medicine
+              <Plus className="ml-2 h-4 w-4" /> إضافة دواء
             </Button>
           </div>
         </div>
@@ -107,15 +70,15 @@ function InventoryPage() {
         <Card>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="border-b border-border bg-muted/40 text-left text-xs uppercase tracking-wider text-muted-foreground">
+              <table className="w-full text-sm text-right">
+                <thead className="border-b border-border bg-muted/40 text-xs uppercase tracking-wider text-muted-foreground">
                   <tr>
-                    <th className="px-4 py-3">Medicine</th>
-                    <th className="px-4 py-3">Barcode</th>
-                    <th className="px-4 py-3">Qty</th>
-                    <th className="px-4 py-3">Expiry</th>
-                    <th className="px-4 py-3">Buy / Sell</th>
-                    <th className="px-4 py-3">Supplier</th>
+                    <th className="px-4 py-3">الدواء</th>
+                    <th className="px-4 py-3">الباركود</th>
+                    <th className="px-4 py-3">الكمية</th>
+                    <th className="px-4 py-3">الصلاحية</th>
+                    <th className="px-4 py-3">شراء / بيع</th>
+                    <th className="px-4 py-3">المورد</th>
                     <th className="px-4 py-3"></th>
                   </tr>
                 </thead>
@@ -134,62 +97,35 @@ function InventoryPage() {
                               <Pill className="h-4 w-4" />
                             </span>
                             <div>
-                              <div className="font-medium">{m.name}</div>
-                              {m.requiresPrescription && (
-                                <Badge variant="outline" className="mt-0.5 border-warning/50 text-warning">
-                                  Rx required
-                                </Badge>
-                              )}
+                              <div className="font-medium text-right">{m.name}</div>
+                              {m.requiresPrescription && <Badge variant="outline" className="mt-0.5 border-warning/50 text-warning">روشتة</Badge>}
                             </div>
                           </div>
                         </td>
                         <td className="px-4 py-3 font-mono text-xs">{m.barcode}</td>
                         <td className="px-4 py-3">
-                          <span className={low ? "font-semibold text-destructive" : ""}>
-                            {m.quantity}
-                          </span>
-                          {low && <Badge variant="destructive" className="ml-2">Low</Badge>}
+                          <span className={low ? "font-semibold text-destructive" : ""}>{m.quantity}</span>
+                          {low && <Badge variant="destructive" className="mr-2">نواقص</Badge>}
                         </td>
                         <td className="px-4 py-3">
-                          <div className={expired ? "text-destructive" : near ? "text-warning" : ""}>
-                            {m.expiryDate}
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            {expired ? `Expired ${Math.abs(days)}d ago` : `${days} days`}
-                          </div>
+                          <div className={expired ? "text-destructive" : near ? "text-warning" : ""}>{m.expiryDate}</div>
+                          <div className="text-xs text-muted-foreground">{expired ? `منتهي من ${Math.abs(days)} يوم` : `باقي ${days} يوم`}</div>
                         </td>
                         <td className="px-4 py-3 text-xs">
                           <div>{formatMoney(m.purchasePrice)}</div>
                           <div className="font-medium text-foreground">{formatMoney(m.sellingPrice)}</div>
                         </td>
-                        <td className="px-4 py-3 text-xs text-muted-foreground">
-                          {sup?.name || "—"}
-                        </td>
+                        <td className="px-4 py-3 text-xs text-muted-foreground">{sup?.name || "—"}</td>
                         <td className="px-4 py-3">
                           <div className="flex justify-end gap-1">
-                            <Button size="icon" variant="ghost" onClick={() => openEdit(m)}>
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              className="text-destructive hover:bg-destructive/10"
-                              onClick={() => setConfirmDel(m)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                            <Button size="icon" variant="ghost" onClick={() => openEdit(m)}><Pencil className="h-4 w-4" /></Button>
+                            <Button size="icon" variant="ghost" className="text-destructive hover:bg-destructive/10" onClick={() => setConfirmDel(m)}><Trash2 className="h-4 w-4" /></Button>
                           </div>
                         </td>
                       </tr>
                     );
                   })}
-                  {list.length === 0 && (
-                    <tr>
-                      <td colSpan={7} className="px-4 py-12 text-center text-sm text-muted-foreground">
-                        No medicines found
-                      </td>
-                    </tr>
-                  )}
+                  {list.length === 0 && <tr><td colSpan={7} className="px-4 py-12 text-center text-sm text-muted-foreground">لا يوجد أدوية</td></tr>}
                 </tbody>
               </table>
             </div>
@@ -197,90 +133,72 @@ function InventoryPage() {
         </Card>
       </div>
 
-      {/* Edit/Create dialog */}
       <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) setEditing(null); }}>
-        <DialogContent className="max-w-xl">
+        <DialogContent className="max-w-xl text-right rtl">
           <DialogHeader>
-            <DialogTitle>{editing?.id ? "Edit Medicine" : "Add Medicine"}</DialogTitle>
+            <DialogTitle>{editing?.id ? "تعديل بيانات الدواء" : "إضافة دواء جديد"}</DialogTitle>
           </DialogHeader>
           {editing && (
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1.5 sm:col-span-2">
-                <Label>Name</Label>
+                <Label>اسم الدواء</Label>
                 <Input value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} />
               </div>
               <div className="space-y-1.5">
-                <Label>Barcode (unique)</Label>
+                <Label>الباركود (فريد)</Label>
                 <Input value={editing.barcode} onChange={(e) => setEditing({ ...editing, barcode: e.target.value })} />
               </div>
               <div className="space-y-1.5">
-                <Label>Expiry date</Label>
+                <Label>تاريخ الصلاحية</Label>
                 <Input type="date" value={editing.expiryDate} onChange={(e) => setEditing({ ...editing, expiryDate: e.target.value })} />
               </div>
               <div className="space-y-1.5">
-                <Label>Quantity (boxes)</Label>
+                <Label>الكمية (بالعلبة)</Label>
                 <Input type="number" min={0} value={editing.quantity} onChange={(e) => setEditing({ ...editing, quantity: Number(e.target.value) })} />
               </div>
               <div className="space-y-1.5">
-                <Label>Supplier</Label>
-                <Select
-                  value={editing.supplierId || "none"}
-                  onValueChange={(v) => setEditing({ ...editing, supplierId: v === "none" ? null : v })}
-                >
-                  <SelectTrigger><SelectValue placeholder="Select supplier" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">No supplier</SelectItem>
-                    {suppliers.map((s) => (
-                      <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                    ))}
+                <Label>المورد</Label>
+                <Select value={editing.supplierId || "none"} onValueChange={(v) => setEditing({ ...editing, supplierId: v === "none" ? null : v })}>
+                  <SelectTrigger dir="rtl"><SelectValue placeholder="اختر المورد" /></SelectTrigger>
+                  <SelectContent dir="rtl">
+                    <SelectItem value="none">بدون مورد</SelectItem>
+                    {suppliers.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label>Purchase price</Label>
+                <Label>سعر الشراء</Label>
                 <Input type="number" min={0} step="0.01" value={editing.purchasePrice} onChange={(e) => setEditing({ ...editing, purchasePrice: Number(e.target.value) })} />
               </div>
               <div className="space-y-1.5">
-                <Label>Selling price</Label>
+                <Label>سعر البيع</Label>
                 <Input type="number" min={0} step="0.01" value={editing.sellingPrice} onChange={(e) => setEditing({ ...editing, sellingPrice: Number(e.target.value) })} />
               </div>
               <div className="flex items-center justify-between rounded-md border border-border p-3 sm:col-span-2">
                 <div>
-                  <Label>Requires prescription</Label>
-                  <p className="text-xs text-muted-foreground">Pharmacist must verify Rx before sale</p>
+                  <Label>يصرف بروشتة طبية</Label>
+                  <p className="text-xs text-muted-foreground">يجب على الصيدلي التحقق من الروشتة قبل البيع</p>
                 </div>
                 <Switch checked={editing.requiresPrescription} onCheckedChange={(v) => setEditing({ ...editing, requiresPrescription: v })} />
               </div>
             </div>
           )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button onClick={save}>Save</Button>
+          <DialogFooter className="flex-row-reverse gap-2">
+            <Button onClick={save}>حفظ البيانات</Button>
+            <Button variant="outline" onClick={() => setOpen(false)}>إلغاء</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Confirm delete */}
       <Dialog open={!!confirmDel} onOpenChange={(v) => !v && setConfirmDel(null)}>
-        <DialogContent>
+        <DialogContent className="text-right rtl">
           <DialogHeader>
-            <DialogTitle>Delete {confirmDel?.name}?</DialogTitle>
+            <DialogTitle>حذف {confirmDel?.name}؟</DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-muted-foreground">This action cannot be undone.</p>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setConfirmDel(null)}>Cancel</Button>
-            <Button
-              variant="destructive"
-              onClick={() => {
-                if (confirmDel) {
-                  deleteMedicine(confirmDel.id);
-                  toast.success("Medicine deleted");
-                  setConfirmDel(null);
-                }
-              }}
-            >
-              Delete
-            </Button>
+          <p className="text-sm text-muted-foreground">لا يمكن التراجع عن هذه الخطوة.</p>
+          <DialogFooter className="flex-row-reverse gap-2">
+            <Button variant="destructive" onClick={() => { if (confirmDel) { deleteMedicine(confirmDel.id); toast.success("تم الحذف"); setConfirmDel(null); } }}>حذف</Button>
+            <Button variant="outline" onClick={() => setConfirmDel(null)}>إلغاء</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
