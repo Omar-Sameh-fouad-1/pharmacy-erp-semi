@@ -13,10 +13,7 @@ export const Route = createFileRoute("/login")({
   component: LoginPage,
 });
 
-// إحداثيات الصيدلية (مثال: التجمع الخامس، القاهرة)
-const PHARMACY_LAT = 30.0300; 
-const PHARMACY_LNG = 31.4800;
-const MAX_DISTANCE_KM = 2.0; // مسموح بقطر 2 كيلومتر فقط
+const MAX_DISTANCE_KM = 2.0; // مسموح بقطر 2 كيلومتر فقط للموظفين
 
 function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
   const R = 6371; 
@@ -30,6 +27,8 @@ function LoginPage() {
   const navigate = useNavigate();
   const currentUserId = useStore((s) => s.currentUserId);
   const security = useStore((s) => s.managerSecurity);
+  const users = useStore((s) => s.users); // سحبنا بيانات المستخدمين للتحقق من الصلاحيات قبل الدخول
+  
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -59,18 +58,41 @@ function LoginPage() {
     e.preventDefault();
     setError("");
     
+    // 1. البحث عن المستخدم لمعرفة صلاحياته قبل أي إجراء
+    const targetUser = users.find(u => u.username.toLowerCase() === username.trim().toLowerCase());
+    
+    if (!targetUser) {
+      // بنحاول نعمل لوج إن عشان السيستم يطلّعله "بيانات الدخول غير صحيحة" في الـ executeLogin
+      executeLogin(); 
+      return;
+    }
+
+    // 2. لو المستخدم "مدير" (Admin)، يدخل فوراً من غير ما يسأله عن اللوكيشن
+    if (targetUser.role === "admin") {
+      executeLogin();
+      return;
+    }
+
+    // 3. لو المستخدم "موظف" (Employee)، نتأكد إن المدير حددله لوكيشن الأول
+    if (!targetUser.allowedLat || !targetUser.allowedLng) {
+      setError("عذراً، لم يقم المدير بتحديد موقع العمل (Location) الخاص بك بعد. تواصل مع الإدارة.");
+      return;
+    }
+
+    // 4. لو الموظف ليه لوكيشن متحدد، نسحب اللوكيشن الحالي بتاعه ونقارن
     if ("geolocation" in navigator) {
       setCheckingLocation(true);
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          const dist = calculateDistance(position.coords.latitude, position.coords.longitude, PHARMACY_LAT, PHARMACY_LNG);
+          const dist = calculateDistance(position.coords.latitude, position.coords.longitude, targetUser.allowedLat!, targetUser.allowedLng!);
           setCheckingLocation(false);
           
-          // مدير النظام يمكنه الدخول من أي مكان لحالات الطوارئ
-          if (dist > MAX_DISTANCE_KM && username.toLowerCase() !== "admin") {
-             setError("غير مسموح بتسجيل الدخول للموظفين من خارج نطاق الصيدلية."); 
+          if (dist > MAX_DISTANCE_KM) {
+             setError("غير مسموح بتسجيل الدخول. أنت خارج النطاق الجغرافي المحدد لعملك."); 
              return;
           }
+          
+          // اللوكيشن صح، نعمله تسجيل دخول
           executeLogin();
         },
         () => {
@@ -102,7 +124,7 @@ function LoginPage() {
             <Pill className="h-7 w-7" />
           </div>
           <h1 className="text-2xl font-bold tracking-tight">{PHARMACY_NAME}</h1>
-          <p className="text-sm text-muted-foreground">نظام الإدارة — تسجيل دخول الموظفين (مؤمن جغرافياً)</p>
+          <p className="text-sm text-muted-foreground">نظام الإدارة — مؤمن جغرافياً</p>
         </div>
 
         <Card className="border-border/60 p-6 backdrop-blur">
@@ -146,17 +168,12 @@ function LoginPage() {
 
           <div className="mt-6 rounded-lg border border-border/60 bg-muted/40 p-3 text-xs text-muted-foreground">
             <div className="mb-1 flex items-center justify-start gap-1.5 font-medium text-foreground">
-              <ShieldCheck className="h-3.5 w-3.5" /> حسابات النظام
+              <ShieldCheck className="h-3.5 w-3.5" /> تعليمات الدخول
             </div>
-            <div>
-              <strong>المدير:</strong> admin / admin
-            </div>
-            <div>
-              <strong>صيدلي:</strong> employee / emp
-            </div>
-            <div className="mt-2 flex items-center gap-1 font-semibold text-warning">
-              <MapPin className="w-3 h-3"/> سيتم التحقق من إحداثيات تواجدك
-            </div>
+            <ul className="list-disc pr-4 space-y-1 text-right mt-2">
+              <li><strong>الإدارة (Admin):</strong> يمكنها الدخول من أي مكان بدون قيود جغرافية.</li>
+              <li><strong>الموظفين (Employee):</strong> يتم التحقق من موقعهم ومطابقته بالموقع المسجل لهم من قبل الإدارة.</li>
+            </ul>
           </div>
         </Card>
       </div>

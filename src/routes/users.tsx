@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Plus, Pencil, Trash2, ShieldCheck, User as UserIcon } from "lucide-react";
+import { Plus, Pencil, Trash2, ShieldCheck, User as UserIcon, MapPin } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,7 +17,7 @@ export const Route = createFileRoute("/users")({ component: UsersPage });
 
 const empty: User = {
   id: "", username: "", fullName: "", email: "", phone: "",
-  role: "employee", password: "", active: true, createdAt: "", dailyHours: 8, 
+  role: "employee", password: "", active: true, createdAt: "", dailyHours: 8,
 };
 
 function UsersPage() {
@@ -48,9 +48,24 @@ function UsersPage() {
     setEditing(null);
   };
 
+  const captureLocation = () => {
+    if ("geolocation" in navigator) {
+      toast.info("جاري التقاط الموقع...");
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setEditing((prev) => prev ? { ...prev, allowedLat: pos.coords.latitude, allowedLng: pos.coords.longitude } : null);
+          toast.success("تم التقاط وحفظ موقع الصيدلية بنجاح");
+        },
+        () => toast.error("تعذر التقاط الموقع. تأكد من تفعيل الـ Location في جهازك.")
+      );
+    } else {
+      toast.error("متصفحك لا يدعم تحديد الموقع");
+    }
+  };
+
   return (
     <AppShell>
-      <div className="space-y-4 text-right" style={{ direction: 'rtl' }}>
+      <div className="space-y-4 text-right rtl" dir="rtl">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">إدارة المستخدمين</h1>
@@ -78,6 +93,7 @@ function UsersPage() {
                       </Badge>
                       <Badge variant="outline" className="border-primary/30">{u.dailyHours} ساعات/يوم</Badge>
                       {!u.active && <Badge variant="destructive">معطل</Badge>}
+                      {u.role === "employee" && u.allowedLat && <Badge variant="outline" className="border-success/50 text-success"><MapPin className="w-3 h-3 ml-1" /> محدد الموقع</Badge>}
                     </div>
                   </div>
                 </div>
@@ -98,7 +114,7 @@ function UsersPage() {
       </div>
 
       <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) setEditing(null); }}>
-        <DialogContent className="text-right rtl">
+        <DialogContent className="max-w-xl text-right rtl" dir="rtl">
           <DialogHeader>
             <DialogTitle>{editing?.id ? "تعديل المستخدم" : "إضافة مستخدم جديد"}</DialogTitle>
           </DialogHeader>
@@ -134,6 +150,27 @@ function UsersPage() {
                 <Label>ساعات العمل اليومية</Label>
                 <Input type="number" min="1" max="24" value={editing.dailyHours} onChange={(e) => setEditing({ ...editing, dailyHours: parseInt(e.target.value) || 0 })} />
               </div>
+
+              {/* قسم تحديد الموقع الجغرافي للموظفين فقط */}
+              {editing.role === "employee" && (
+                <div className="space-y-2 sm:col-span-2 border border-border p-3 rounded-md bg-muted/20">
+                  <Label>تأمين الموقع الجغرافي (للموظف)</Label>
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                    <Button type="button" variant="secondary" onClick={captureLocation} className="gap-2 shrink-0 flex-row-reverse">
+                      التقاط موقع الصيدلية الحالي <MapPin className="w-4 h-4" />
+                    </Button>
+                    {editing.allowedLat && editing.allowedLng ? (
+                      <div className="text-sm text-success font-medium flex items-center gap-1 flex-row-reverse">
+                        تم تعيين الموقع بنجاح <span dir="ltr" className="text-xs text-muted-foreground ml-2">({editing.allowedLat.toFixed(4)}, {editing.allowedLng.toFixed(4)})</span>
+                      </div>
+                    ) : (
+                      <div className="text-sm text-warning">لم يتم تعيين موقع. التقط الموقع من داخل الفرع.</div>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground">سيرفض النظام دخول هذا الموظف إلا إذا كان تواجده في محيط هذا الموقع.</p>
+                </div>
+              )}
+
               <div className="space-y-1.5 sm:col-span-2">
                 <Label>{editing.id ? "إعادة تعيين كلمة المرور (اختياري)" : "كلمة المرور"}</Label>
                 <Input type="text" dir="ltr" className="text-right" value={editing.password} onChange={(e) => setEditing({ ...editing, password: e.target.value })} />
@@ -155,7 +192,7 @@ function UsersPage() {
       </Dialog>
 
       <Dialog open={!!confirmDel} onOpenChange={(v) => !v && setConfirmDel(null)}>
-        <DialogContent className="text-right rtl">
+        <DialogContent className="text-right rtl" dir="rtl">
           <DialogHeader>
             <DialogTitle>حذف {confirmDel?.fullName}؟</DialogTitle>
           </DialogHeader>

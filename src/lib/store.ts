@@ -1,7 +1,3 @@
-/**
- * Frontend-only in-memory store for the Pharmacy ERP demo.
- * State persists across navigations within a session via localStorage.
- */
 import { useEffect, useState, useSyncExternalStore } from "react";
 
 export type Role = "admin" | "employee";
@@ -17,6 +13,8 @@ export interface User {
   active: boolean;
   createdAt: string;
   dailyHours: number;
+  allowedLat?: number; // خط العرض المسموح للموظف
+  allowedLng?: number; // خط الطول المسموح للموظف
 }
 
 export interface Supplier {
@@ -35,7 +33,7 @@ export interface Medicine {
   purchasePrice: number;
   sellingPrice: number;
   requiresPrescription: boolean;
-  supplierIds: string[]; // ← دعم أكثر من مورد
+  supplierIds: string[]; 
   createdAt: string;
 }
 
@@ -152,8 +150,8 @@ function seed(): AppState {
   ];
   return {
     users: [
-      { id: adminId, username: "admin", fullName: "عمر سامح", email: "admin@pharmacy.com", phone: "+201000000000", role: "admin", password: "admin", active: true, createdAt: new Date().toISOString(), dailyHours: 8 },
-      { id: empId, username: "employee", fullName: "سارة أحمد", email: "sara@pharmacy.com", phone: "+201111111111", role: "employee", password: "emp", active: true, createdAt: new Date().toISOString(), dailyHours: 8 },
+      { id: adminId, username: "admin", fullName: "المدير", email: "admin@pharmacy.com", phone: "+201000000000", role: "admin", password: "admin", active: true, createdAt: new Date().toISOString(), dailyHours: 8 },
+      { id: empId, username: "employee", fullName: "صيدلي", email: "sara@pharmacy.com", phone: "+201111111111", role: "employee", password: "emp", active: true, createdAt: new Date().toISOString(), dailyHours: 8 },
     ],
     currentUserId: null,
     suppliers: [
@@ -166,7 +164,7 @@ function seed(): AppState {
     returns: [],
     dailyClosings: [],
     auditLogs: [
-      { id: uid("a_"), ts: new Date().toISOString(), actorId: adminId, actorName: "عمر سامح", action: "system.seed", details: "تمت تهيئة النظام", severity: "info" },
+      { id: uid("a_"), ts: new Date().toISOString(), actorId: adminId, actorName: "المدير", action: "system.seed", details: "تمت تهيئة النظام", severity: "info" },
     ],
     managerSecurity: { pinHash: null, recoveryEmail: "admin@pharmacy.com", recoveryPhone: "+201000000000", setupComplete: false },
     notifications: [],
