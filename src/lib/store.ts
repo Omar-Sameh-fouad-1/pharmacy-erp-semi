@@ -17,7 +17,7 @@ export interface User {
   password: string; // demo only
   active: boolean;
   createdAt: string;
-  dailyHours: number; // ← السطر الجديد الخاص بساعات العمل
+  dailyHours: number;
 }
 
 export interface Supplier {
@@ -237,8 +237,8 @@ function logAudit(action: string, details?: string, severity: AuditLog["severity
 export function login(username: string, password: string): { ok: true; user: User } | { ok: false; error: string } {
   const s = getState();
   const user = s.users.find((u) => u.username.toLowerCase() === username.toLowerCase() && u.password === password);
-  if (!user) return { ok: false, error: "Invalid username or password" };
-  if (!user.active) return { ok: false, error: "Account is disabled" };
+  if (!user) return { ok: false, error: "بيانات الدخول غير صحيحة" };
+  if (!user.active) return { ok: false, error: "هذا الحساب معطل" };
   setState((s) => ({ ...s, currentUserId: user.id }));
   logAudit("auth.login", `User ${user.username} logged in`);
   return { ok: true, user };
@@ -311,7 +311,7 @@ export function deleteSupplier(id: string) {
 export function upsertMedicine(m: Medicine): { ok: boolean; error?: string } {
   const st = getState();
   const dup = st.medicines.find((x) => x.barcode === m.barcode && x.id !== m.id);
-  if (dup) return { ok: false, error: "Barcode already in use" };
+  if (dup) return { ok: false, error: "الباركود مستخدم بالفعل" };
   setState((st) => {
     const exists = st.medicines.some((x) => x.id === m.id);
     return {
@@ -336,12 +336,12 @@ export function findMedicineByBarcode(barcode: string): Medicine | undefined {
 // ---- Sales ----
 export function recordSale(input: { items: SaleItem[]; paymentMethod: PaymentMethod }): { ok: boolean; error?: string; sale?: Sale } {
   const cu = getCurrentUser();
-  if (!cu) return { ok: false, error: "Not authenticated" };
+  if (!cu) return { ok: false, error: "يجب تسجيل الدخول أولاً" };
   const st = getState();
   for (const it of input.items) {
     const med = st.medicines.find((m) => m.id === it.medicineId);
-    if (!med) return { ok: false, error: `Medicine not found: ${it.medicineName}` };
-    if (med.quantity < it.qty) return { ok: false, error: `Insufficient stock for ${med.name}` };
+    if (!med) return { ok: false, error: `الدواء غير موجود: ${it.medicineName}` };
+    if (med.quantity < it.qty) return { ok: false, error: `الكمية غير كافية لـ ${med.name}` };
   }
   const total = input.items.reduce((a, b) => a + b.qty * b.unitPrice, 0);
   const cost = input.items.reduce((a, b) => a + b.qty * b.unitCost, 0);
@@ -375,12 +375,12 @@ export function getTodaysSales(): Sale[] {
 }
 
 export function closeDay(pin: string): { ok: boolean; error?: string; closing?: DailyClosing } {
-  if (!verifyPin(pin)) return { ok: false, error: "Invalid manager PIN" };
+  if (!verifyPin(pin)) return { ok: false, error: "رقم الـ PIN غير صحيح" };
   const cu = getCurrentUser();
-  if (!cu) return { ok: false, error: "Not authenticated" };
+  if (!cu) return { ok: false, error: "يجب تسجيل الدخول" };
   const today = todayISO();
   const todays = getTodaysSales();
-  if (todays.length === 0) return { ok: false, error: "No sales recorded today" };
+  if (todays.length === 0) return { ok: false, error: "لا يوجد مبيعات اليوم للإغلاق" };
   const totals: Record<PaymentMethod, number> = { cash: 0, card: 0, wallet: 0, insurance: 0 };
   todays.forEach((s) => { totals[s.paymentMethod] += s.total; });
   const grandTotal = Object.values(totals).reduce((a, b) => a + b, 0);
@@ -423,13 +423,15 @@ export function computeAlerts(): Notification[] {
   const alerts: Notification[] = [];
   for (const m of st.medicines) {
     const days = Math.ceil((new Date(m.expiryDate).getTime() - Date.now()) / 86400000);
+    
+    // ترجمة الإشعارات للعربي من هنا
     if (m.quantity <= 10) {
       alerts.push({
         id: `low_${m.id}`,
         ts: new Date().toISOString(),
         type: "low_stock",
-        title: `Low stock: ${m.name}`,
-        message: `Only ${m.quantity} boxes remaining`,
+        title: `نقص مخزون: ${m.name}`,
+        message: `متبقي ${m.quantity} علبة فقط`,
         read: false,
         urgent: m.quantity <= 5,
       });
@@ -439,8 +441,8 @@ export function computeAlerts(): Notification[] {
         id: `exp_${m.id}`,
         ts: new Date().toISOString(),
         type: "near_expiry",
-        title: `Near expiry: ${m.name}`,
-        message: `Expires in ${days} day${days === 1 ? "" : "s"} (${m.expiryDate})`,
+        title: `قرب انتهاء الصلاحية: ${m.name}`,
+        message: `تنتهي الصلاحية خلال ${days} يوم (${m.expiryDate})`,
         read: false,
         urgent: days <= 7,
       });
@@ -449,8 +451,8 @@ export function computeAlerts(): Notification[] {
         id: `exp_${m.id}`,
         ts: new Date().toISOString(),
         type: "near_expiry",
-        title: `EXPIRED: ${m.name}`,
-        message: `Expired ${Math.abs(days)} day${Math.abs(days) === 1 ? "" : "s"} ago`,
+        title: `منتهي الصلاحية: ${m.name}`,
+        message: `انتهت الصلاحية منذ ${Math.abs(days)} يوم`,
         read: false,
         urgent: true,
       });
@@ -467,7 +469,7 @@ export function exportBackup(): string {
 export function importBackup(json: string): { ok: boolean; error?: string } {
   try {
     const parsed = JSON.parse(json) as AppState;
-    if (!parsed.users || !parsed.medicines) throw new Error("Invalid backup file");
+    if (!parsed.users || !parsed.medicines) throw new Error("ملف النسخة الاحتياطية غير صالح");
     setState(() => parsed);
     logAudit("system.restore", "Backup restored", "critical");
     return { ok: true };

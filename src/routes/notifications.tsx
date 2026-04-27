@@ -16,7 +16,7 @@ function NotificationsPage() {
 
   return (
     <AppShell>
-      <div className="space-y-6">
+      <div className="space-y-6 text-right" dir="rtl">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">الإشعارات والتنبيهات</h1>
           <p className="text-sm text-muted-foreground">{alerts.length} تنبيه نشط</p>
@@ -31,13 +31,13 @@ function NotificationsPage() {
               {urgent.map((a) => (
                 <Card key={a.id} className="border-destructive/50 bg-destructive/5">
                   <CardContent className="flex items-start gap-3 p-4">
-                    {a.type === "low_stock" ? <Package className="mt-0.5 h-5 w-5 text-destructive" /> : <CalendarClock className="mt-0.5 h-5 w-5 text-destructive" />}
-                    <div className="flex-1">
+                    {a.type === "low_stock" ? <Package className="mt-0.5 h-5 w-5 shrink-0 text-destructive" /> : <CalendarClock className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />}
+                    <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between">
-                        <div className="font-semibold">{a.title}</div>
-                        <Badge variant="destructive">عاجل</Badge>
+                        <div className="font-semibold truncate" dir="rtl">{a.title}</div>
+                        <Badge variant="destructive" className="shrink-0">عاجل</Badge>
                       </div>
-                      <div className="text-sm text-muted-foreground">{a.message.replace("boxes left", "متبقي")}</div>
+                      <div className="text-sm text-muted-foreground mt-1">{a.message}</div>
                     </div>
                   </CardContent>
                 </Card>
@@ -55,10 +55,10 @@ function NotificationsPage() {
               {others.map((a) => (
                 <Card key={a.id} className="border-warning/40">
                   <CardContent className="flex items-start gap-3 p-4">
-                    {a.type === "low_stock" ? <Package className="mt-0.5 h-5 w-5 text-warning" /> : <CalendarClock className="mt-0.5 h-5 w-5 text-warning" />}
-                    <div className="flex-1">
-                      <div className="font-medium">{a.title}</div>
-                      <div className="text-sm text-muted-foreground">{a.message.replace("Expires in", "تنتهي في").replace("days", "أيام")}</div>
+                    {a.type === "low_stock" ? <Package className="mt-0.5 h-5 w-5 shrink-0 text-warning" /> : <CalendarClock className="mt-0.5 h-5 w-5 shrink-0 text-warning" />}
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium truncate" dir="rtl">{a.title}</div>
+                      <div className="text-sm text-muted-foreground mt-1">{a.message}</div>
                     </div>
                   </CardContent>
                 </Card>
@@ -68,8 +68,8 @@ function NotificationsPage() {
         )}
 
         {alerts.length === 0 && (
-          <div className="rounded-lg border border-dashed border-border p-12 text-center text-muted-foreground">
-            <Bell className="mx-auto mb-3 h-10 w-10 opacity-40" />
+          <div className="rounded-lg border border-dashed border-border p-12 text-center text-muted-foreground flex flex-col items-center">
+            <Bell className="mb-3 h-10 w-10 opacity-40" />
             <p>الأمور ممتازة — لا يوجد أي إشعارات أو تنبيهات.</p>
           </div>
         )}
