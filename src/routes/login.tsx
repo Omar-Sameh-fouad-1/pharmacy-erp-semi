@@ -13,7 +13,7 @@ export const Route = createFileRoute("/login")({
   component: LoginPage,
 });
 
-const MAX_DISTANCE_KM = 2.0; // مسموح بقطر 2 كيلومتر فقط للموظفين
+const MAX_DISTANCE_KM = 2.0; // المسافة المسموحة للموظف (2 كيلو)
 
 function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
   const R = 6371; 
@@ -27,7 +27,7 @@ function LoginPage() {
   const navigate = useNavigate();
   const currentUserId = useStore((s) => s.currentUserId);
   const security = useStore((s) => s.managerSecurity);
-  const users = useStore((s) => s.users); // سحبنا بيانات المستخدمين للتحقق من الصلاحيات قبل الدخول
+  const users = useStore((s) => s.users); // سحب قائمة المستخدمين للتحقق قبل الدخول
   
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -58,51 +58,56 @@ function LoginPage() {
     e.preventDefault();
     setError("");
     
-    // 1. البحث عن المستخدم لمعرفة صلاحياته قبل أي إجراء
+    // 1. البحث عن المستخدم في البيانات المحلية لمعرفة رتبته (Role)
     const targetUser = users.find(u => u.username.toLowerCase() === username.trim().toLowerCase());
     
     if (!targetUser) {
-      // بنحاول نعمل لوج إن عشان السيستم يطلّعله "بيانات الدخول غير صحيحة" في الـ executeLogin
-      executeLogin(); 
-      return;
-    }
-
-    // 2. لو المستخدم "مدير" (Admin)، يدخل فوراً من غير ما يسأله عن اللوكيشن
-    if (targetUser.role === "admin") {
+      // لو اليوزر مش موجود أصلاً، بنفذ الدخول عشان يظهر خطأ "بيانات غير صحيحة" المعتاد
       executeLogin();
       return;
     }
 
-    // 3. لو المستخدم "موظف" (Employee)، نتأكد إن المدير حددله لوكيشن الأول
-    if (!targetUser.allowedLat || !targetUser.allowedLng) {
-      setError("عذراً، لم يقم المدير بتحديد موقع العمل (Location) الخاص بك بعد. تواصل مع الإدارة.");
+    // 2. التحقق: هل هو مدير (Admin)؟
+    if (targetUser.role === "admin") {
+      // لو مدير، يدخل فوراً بالباسورد فقط
+      executeLogin();
       return;
     }
 
-    // 4. لو الموظف ليه لوكيشن متحدد، نسحب اللوكيشن الحالي بتاعه ونقارن
+    // 3. لو موظف (Employee)، نبدأ فحص الموقع الجغرافي
+    if (!targetUser.allowedLat || !targetUser.allowedLng) {
+      setError("لم يتم تحديد موقع عمل لك من قبل الإدارة. يرجى مراجعة المدير.");
+      return;
+    }
+
     if ("geolocation" in navigator) {
       setCheckingLocation(true);
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          const dist = calculateDistance(position.coords.latitude, position.coords.longitude, targetUser.allowedLat!, targetUser.allowedLng!);
+          const dist = calculateDistance(
+            position.coords.latitude, 
+            position.coords.longitude, 
+            targetUser.allowedLat!, 
+            targetUser.allowedLng!
+          );
           setCheckingLocation(false);
           
           if (dist > MAX_DISTANCE_KM) {
-             setError("غير مسموح بتسجيل الدخول. أنت خارج النطاق الجغرافي المحدد لعملك."); 
+             setError("فشل الدخول: أنت خارج النطاق الجغرافي المسموح به للصيدلية."); 
              return;
           }
           
-          // اللوكيشن صح، نعمله تسجيل دخول
+          // الموقع سليم، يتم تسجيل الدخول
           executeLogin();
         },
         () => {
           setCheckingLocation(false);
-          setError("يرجى تفعيل وإعطاء صلاحيات الموقع (Location) لتسجيل الدخول.");
-        }
+          setError("يرجى تفعيل صلاحيات الموقع (Location) للسماح للموظفين بالدخول.");
+        },
+        { enableHighAccuracy: true } // طلب دقة عالية للموقع
       );
     } else {
-      // للمتصفحات القديمة
-      executeLogin(); 
+      setError("متصفحك لا يدعم خاصية تحديد الموقع.");
     }
   };
 
@@ -124,7 +129,7 @@ function LoginPage() {
             <Pill className="h-7 w-7" />
           </div>
           <h1 className="text-2xl font-bold tracking-tight">{PHARMACY_NAME}</h1>
-          <p className="text-sm text-muted-foreground">نظام الإدارة — مؤمن جغرافياً</p>
+          <p className="text-sm text-muted-foreground">نظام الإدارة — تسجيل الدخول الذكي</p>
         </div>
 
         <Card className="border-border/60 p-6 backdrop-blur">
@@ -136,7 +141,6 @@ function LoginPage() {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="admin"
-                autoComplete="username"
                 dir="ltr"
                 className="text-right"
                 required
@@ -150,29 +154,28 @@ function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                autoComplete="current-password"
                 dir="ltr"
                 className="text-right"
                 required
               />
             </div>
             {error && (
-              <p className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              <p className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive font-medium">
                 {error}
               </p>
             )}
             <Button type="submit" className="w-full" size="lg" disabled={checkingLocation}>
-              {checkingLocation ? "جاري التحقق من موقعك..." : <><LogIn className="ml-2 h-4 w-4" /> تسجيل الدخول</>}
+              {checkingLocation ? "جاري فحص الموقع..." : <><LogIn className="ml-2 h-4 w-4" /> تسجيل الدخول</>}
             </Button>
           </form>
 
           <div className="mt-6 rounded-lg border border-border/60 bg-muted/40 p-3 text-xs text-muted-foreground">
             <div className="mb-1 flex items-center justify-start gap-1.5 font-medium text-foreground">
-              <ShieldCheck className="h-3.5 w-3.5" /> تعليمات الدخول
+              <ShieldCheck className="h-3.5 w-3.5" /> سياسة الدخول:
             </div>
-            <ul className="list-disc pr-4 space-y-1 text-right mt-2">
-              <li><strong>الإدارة (Admin):</strong> يمكنها الدخول من أي مكان بدون قيود جغرافية.</li>
-              <li><strong>الموظفين (Employee):</strong> يتم التحقق من موقعهم ومطابقته بالموقع المسجل لهم من قبل الإدارة.</li>
+            <ul className="list-disc pr-4 space-y-1">
+              <li>المدير: دخول مباشر بدون قيود جغرافية.</li>
+              <li>الموظف: الدخول مشروط بالتواجد في موقع الصيدلية.</li>
             </ul>
           </div>
         </Card>
