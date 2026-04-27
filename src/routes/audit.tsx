@@ -14,11 +14,17 @@ import { toast } from "sonner";
 
 export const Route = createFileRoute("/audit")({ component: AuditPage });
 
+// الحل الجذري لمشكلة الـ Infinite Loop
+const EMPTY_RETURNS: any[] = [];
+
 function AuditPage() {
   const navigate = useNavigate();
   const logs = useStore((s) => s.auditLogs);
   const sales = useStore((s) => s.sales);
-  const returns = useStore((s) => s.returns || [];
+  
+  // استخدام المصفوفة الثابتة عشان نمنع الـ Loop والـ Crash
+  const returns = useStore((s) => s.returns || EMPTY_RETURNS);
+  
   const users = useStore((s) => s.users);
   const currentUserId = useStore((s) => s.currentUserId);
   const me = users.find((u) => u.id === currentUserId);
@@ -67,7 +73,6 @@ function AuditPage() {
 
   const totalRevenue = filteredSales.reduce((acc, sale) => acc + sale.total, 0);
 
-  // دالة الإرجاع السريع من القائمة مباشرة
   const handleQuickReturnFull = (sale: Sale) => {
     if(confirm(`هل أنت متأكد من إرجاع الفاتورة #${sale.id.replace('sale_', '')} بالكامل للمخزن؟ سيتم خصم قيمتها من المبيعات اليومية.`)){
        const res = processReturn(sale.id);
@@ -79,7 +84,6 @@ function AuditPage() {
     }
   };
 
-  // دالة الإرجاع الجزئي (صنف معين من داخل التفاصيل)
   const handleReturnItem = (medicineId: string, medicineName: string) => {
     if (!selectedSale) return;
     if (confirm(`هل أنت متأكد من إرجاع الصنف "${medicineName}" للمخزن؟ سيتم خصمه من إجمالي الفاتورة.`)) {
@@ -103,7 +107,6 @@ function AuditPage() {
     }
   };
 
-  // دالة إرجاع الفاتورة كاملة (من داخل التفاصيل)
   const handleReturnFullSale = () => {
     if(!selectedSale) return;
     if(confirm("هل أنت متأكد من إرجاع هذه الفاتورة بالكامل للمخزن؟")){
@@ -162,7 +165,6 @@ function AuditPage() {
                     </CardContent>
                 </Card>
             </div>
-            {/* ضفنا هنا onReturn عشان تتبعت للـ LogList */}
             <LogList items={filteredSales} type="sales" onPrint={setSelectedSale} onReturn={handleQuickReturnFull} />
           </TabsContent>
 
@@ -276,7 +278,6 @@ function AuditPage() {
   );
 }
 
-// ضفنا هنا onReturn كـ Prop و عملنا الزرار الخاص بالمرتجع السريع
 function LogList({ items, type, onPrint, onReturn, icon }: any) {
   return (
     <Card>
