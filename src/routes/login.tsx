@@ -13,7 +13,7 @@ export const Route = createFileRoute("/login")({
   component: LoginPage,
 });
 
-const MAX_DISTANCE_KM = 2.0; // المسافة المسموحة للموظف (2 كيلو)
+const MAX_DISTANCE_KM = 2.0; 
 
 function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
   const R = 6371; 
@@ -27,7 +27,7 @@ function LoginPage() {
   const navigate = useNavigate();
   const currentUserId = useStore((s) => s.currentUserId);
   const security = useStore((s) => s.managerSecurity);
-  const users = useStore((s) => s.users); 
+  const users = useStore((s) => s.users);
   
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -36,19 +36,15 @@ function LoginPage() {
 
   useEffect(() => {
     if (currentUserId) {
-      const isAdminWithoutPin = !security.setupComplete;
-      if (isAdminWithoutPin) {
-        navigate({ to: "/security-setup" });
-      } else {
-        navigate({ to: "/" });
-      }
+      if (!security.setupComplete) navigate({ to: "/security-setup" });
+      else navigate({ to: "/" });
     }
   }, [currentUserId, security.setupComplete, navigate]);
 
   const executeLogin = () => {
     const res = login(username.trim(), password);
     if (!res.ok) {
-      setError(res.error === "Invalid credentials" ? "بيانات الدخول غير صحيحة" : res.error);
+      setError(res.error); // هيطلع "بيانات الدخول غير صحيحة"
       return;
     }
     toast.success(`أهلاً بك، ${res.user.fullName}`);
@@ -58,27 +54,28 @@ function LoginPage() {
     e.preventDefault();
     setError("");
     
-    const targetUser = users.find(u => u.username.toLowerCase() === username.trim().toLowerCase());
+    // 1. فحص هل اسم المستخدم موجود أصلاً في النظام؟
+    const targetUser = users?.find(u => u.username.toLowerCase() === username.trim().toLowerCase());
     
-    // لو اليوزر مش موجود أو الباسورد هتكون غلط، نخليه ينفذ اللوجين العادي عشان تطلعله الرسالة الحمراء
+    // 2. لو مش موجود، ابعت البيانات للـ store عشان هو اللي يطلع رسالة الخطأ الرسمية (أمان أكتر)
     if (!targetUser) {
       executeLogin();
       return;
     }
 
-    // 1. لو مدير، يخش طلقة من غير لوكيشن
+    // 3. لو موجود وهو "مدير"، دخله فوراً بالباسورد
     if (targetUser.role === "admin") {
       executeLogin();
       return;
     }
 
-    // 2. لو موظف، نتأكد إن المدير حطله لوكيشن
+    // 4. لو "موظف" (Employee)، نتأكد إن المدير حددله لوكيشن الأول
     if (!targetUser.allowedLat || !targetUser.allowedLng) {
-      setError("لم يتم تحديد موقع عمل لك من قبل الإدارة. يرجى مراجعة المدير.");
+      setError("عذراً، لم يتم تحديد موقع العمل (Location) الخاص بك بعد. تواصل مع الإدارة.");
       return;
     }
 
-    // 3. الموظف ليه لوكيشن.. نفحص مكانه
+    // 5. فحص الموقع الجغرافي للموظف فقط
     if ("geolocation" in navigator) {
       setCheckingLocation(true);
       navigator.geolocation.getCurrentPosition(
@@ -92,18 +89,16 @@ function LoginPage() {
           setCheckingLocation(false);
           
           if (dist > MAX_DISTANCE_KM) {
-             setError("فشل الدخول: أنت خارج النطاق الجغرافي المسموح به للصيدلية."); 
+             setError("غير مسموح بالدخول: أنت خارج النطاق الجغرافي للصيدلية.");
              return;
           }
-          
-          // لو جوا النطاق، يكمل تسجيل الدخول
-          executeLogin();
+          executeLogin(); // الموقع صح، كمل الدخول
         },
         () => {
           setCheckingLocation(false);
-          setError("يرجى تفعيل صلاحيات الموقع (Location) للسماح للموظفين بالدخول.");
+          setError("يرجى تفعيل صلاحيات الموقع (Location) لتسجيل دخول الموظفين.");
         },
-        { enableHighAccuracy: true } 
+        { enableHighAccuracy: true, timeout: 5000 }
       );
     } else {
       setError("متصفحك لا يدعم خاصية تحديد الموقع.");
@@ -111,32 +106,21 @@ function LoginPage() {
   };
 
   return (
-    <div
-      className="flex min-h-screen items-center justify-center bg-background p-4 text-right rtl"
-      dir="rtl"
-      style={{
-        backgroundImage:
-          "radial-gradient(circle at 20% 10%, oklch(0.62 0.22 277 / 0.18), transparent 40%), radial-gradient(circle at 80% 90%, oklch(0.72 0.2 290 / 0.15), transparent 40%)",
-      }}
-    >
+    <div className="flex min-h-screen items-center justify-center bg-background p-4 text-right rtl" dir="rtl">
       <div className="w-full max-w-md">
         <div className="mb-6 text-center">
-          <div
-            className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl text-primary-foreground"
-            style={{ background: "var(--gradient-primary)", boxShadow: "var(--shadow-glow)" }}
-          >
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary text-white">
             <Pill className="h-7 w-7" />
           </div>
           <h1 className="text-2xl font-bold tracking-tight">{PHARMACY_NAME}</h1>
-          <p className="text-sm text-muted-foreground">نظام الإدارة — تسجيل الدخول الذكي</p>
+          <p className="text-sm text-muted-foreground">نظام الإدارة — تسجيل دخول آمن</p>
         </div>
 
-        <Card className="border-border/60 p-6 backdrop-blur">
+        <Card className="border-border/60 p-6 backdrop-blur shadow-xl">
           <form className="space-y-4" onSubmit={onSubmit}>
             <div className="space-y-2">
-              <Label htmlFor="username">اسم المستخدم</Label>
+              <Label>اسم المستخدم</Label>
               <Input
-                id="username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="admin"
@@ -146,9 +130,8 @@ function LoginPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">كلمة المرور</Label>
+              <Label>كلمة المرور</Label>
               <Input
-                id="password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -170,11 +153,11 @@ function LoginPage() {
 
           <div className="mt-6 rounded-lg border border-border/60 bg-muted/40 p-3 text-xs text-muted-foreground">
             <div className="mb-1 flex items-center justify-start gap-1.5 font-medium text-foreground">
-              <ShieldCheck className="h-3.5 w-3.5" /> سياسة الدخول:
+              <ShieldCheck className="h-3.5 w-3.5" /> سياسة الدخول
             </div>
             <ul className="list-disc pr-4 space-y-1">
-              <li>المدير: دخول مباشر بدون قيود جغرافية.</li>
-              <li>الموظف: الدخول مشروط بالتواجد في موقع الصيدلية.</li>
+              <li>المدير: دخول مباشر من أي مكان.</li>
+              <li>الموظف: الدخول مرتبط بموقع الصيدلية المسجل.</li>
             </ul>
           </div>
         </Card>
