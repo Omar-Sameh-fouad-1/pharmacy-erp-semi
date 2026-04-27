@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { ShieldAlert, ReceiptText, History, CalendarDays, Printer, Lock, UserCheck } from "lucide-react";
+import { ShieldAlert, ReceiptText, History, CalendarDays, Printer, Lock, UserCheck, Undo2 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -8,8 +8,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { useStore, type Sale, type AuditLog } from "@/lib/store";
+import { useStore, processReturn, type Sale, type AuditLog } from "@/lib/store";
 import { formatMoney } from "@/lib/constants";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/audit")({ component: AuditPage });
 
@@ -17,6 +18,7 @@ function AuditPage() {
   const navigate = useNavigate();
   const logs = useStore((s) => s.auditLogs);
   const sales = useStore((s) => s.sales);
+  const returns = useStore((s) => s.returns || []); // استدعاء المرتجعات
   const users = useStore((s) => s.users);
   const currentUserId = useStore((s) => s.currentUserId);
   const me = users.find((u) => u.id === currentUserId);
@@ -30,27 +32,15 @@ function AuditPage() {
 
   const calculateShift = (logoutLog: AuditLog) => {
     if (!logoutLog.action.includes("logout")) return null;
-    
-    const loginLog = logs.find(l => 
-      l.actorId === logoutLog.actorId && 
-      l.action.includes("login") && 
-      new Date(l.ts) < new Date(logoutLog.ts)
-    );
-
+    const loginLog = logs.find(l => l.actorId === logoutLog.actorId && l.action.includes("login") && new Date(l.ts) < new Date(logoutLog.ts));
     if (!loginLog) return null;
-
     const durationMs = new Date(logoutLog.ts).getTime() - new Date(loginLog.ts).getTime();
     return durationMs / (1000 * 60 * 60); 
   };
 
   const logCategories = useMemo(() => {
     const t = q.toLowerCase();
-    const filtered = logs.filter((l) => 
-      l.action.toLowerCase().includes(t) || 
-      (l.details || "").toLowerCase().includes(t) ||
-      l.actorName.toLowerCase().includes(t)
-    );
-
+    const filtered = logs.filter((l) => l.action.toLowerCase().includes(t) || (l.details || "").toLowerCase().includes(t) || l.actorName.toLowerCase().includes(t));
     return {
       auth: filtered.filter(l => l.action.startsWith('auth.')),
       closing: filtered.filter(l => l.action.includes('close_day') || l.action.includes('payments')),
@@ -64,6 +54,20 @@ function AuditPage() {
   }, [sales, q]);
 
   const totalRevenue = filteredSales.reduce((acc, sale) => acc + sale.total, 0);
+
+  // دالة المرتجعات
+  const handleReturnSale = () => {
+    if (!selectedSale) return;
+    if (confirm("هل أنت متأكد من إرجاع هذه الفاتورة للمخزن؟ سيتم خصم قيمتها من المبيعات وتعديل مخزون الأدوية.")) {
+       const res = processReturn(selectedSale.id);
+       if (res.ok) {
+          toast.success("تم إرجاع الفاتورة للمخزن بنجاح");
+          setSelectedSale(null);
+       } else {
+          toast.error(res.error);
+       }
+    }
+  };
 
   return (
     <AppShell>
@@ -81,7 +85,7 @@ function AuditPage() {
             <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight text-primary justify-end">
                مركز الإدارة والمراقبة <ShieldAlert className="h-6 w-6" />
             </h1>
-            <p className="text-sm text-muted-foreground mt-1">تتبع مفصل لنشاط الموظفين وحركة المبيعات</p>
+            <p className="text-sm text-muted-foreground mt-1">تتبع مفصل لنشاط الموظفين وحركة المبيعات والمرتجعات</p>
           </div>
           <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="بحث باسم الموظف أو الحدث..." className="max-w-sm text-right" />
         </div>
@@ -89,6 +93,7 @@ function AuditPage() {
         <Tabs defaultValue="sales" className="w-full">
           <TabsList className="flex w-full overflow-x-auto justify-start border-b rounded-none bg-transparent h-auto p-0 gap-6" dir="rtl">
             <TabsTrigger value="sales" className="data-[state=active]:border-primary border-b-2 border-transparent rounded-none bg-transparent px-2 pb-2 h-full">المبيعات اليومية</TabsTrigger>
+            <TabsTrigger value="returns" className="data-[state=active]:border-primary border-b-2 border-transparent rounded-none bg-transparent px-2 pb-2 h-full text-destructive">المرتجعات</TabsTrigger>
             <TabsTrigger value="auth" className="data-[state=active]:border-primary border-b-2 border-transparent rounded-none bg-transparent px-2 pb-2 h-full">حضور الموظفين</TabsTrigger>
             <TabsTrigger value="closing" className="data-[state=active]:border-primary border-b-2 border-transparent rounded-none bg-transparent px-2 pb-2 h-full">إغلاق اليوم (التقفيل)</TabsTrigger>
             <TabsTrigger value="system" className="data-[state=active]:border-primary border-b-2 border-transparent rounded-none bg-transparent px-2 pb-2 h-full">سجلات النظام</TabsTrigger>
@@ -110,6 +115,10 @@ function AuditPage() {
                 </Card>
             </div>
             <LogList items={filteredSales} type="sales" onPrint={setSelectedSale} />
+          </TabsContent>
+
+          <TabsContent value="returns" className="mt-4">
+            <LogList items={returns} type="returns" icon={<Undo2 className="w-4 h-4 text-destructive" />} />
           </TabsContent>
 
           <TabsContent value="auth" className="mt-4">
@@ -189,7 +198,12 @@ function AuditPage() {
             </div>
             <div className="mt-4 text-center text-[10px] text-gray-500">الكاشير: {selectedSale?.cashierName}</div>
           </div>
-          <DialogFooter className="print:hidden flex-row-reverse justify-start">
+          <DialogFooter className="print:hidden flex-row-reverse justify-between">
+             {selectedSale && !returns.some((r:any) => r.saleId === selectedSale.id) && (
+               <Button variant="destructive" onClick={handleReturnSale} className="gap-2 flex-row-reverse">
+                 إرجاع للمخزن <Undo2 className="w-4 h-4" />
+               </Button>
+            )}
             <Button onClick={() => window.print()} className="gap-2 flex-row-reverse"><Printer className="w-4 h-4" /> طباعة</Button>
           </DialogFooter>
         </DialogContent>
@@ -209,12 +223,12 @@ function LogList({ items, type, onPrint, icon }: any) {
                 <div className="p-2 bg-muted rounded-full text-primary">{icon || <ReceiptText className="w-4 h-4"/>}</div>
                 <div className="text-right">
                   <div className="text-sm font-bold uppercase">
-                    {type === 'sales' ? `فاتورة #${item.id.replace('sale_', '')}` : item.action.replace('auth.', 'موظف: ').replace('payments.', 'ماليات: ')}
+                    {type === 'sales' ? `فاتورة #${item.id.replace('sale_', '')}` : type === 'returns' ? `مرتجع لفاتورة #${item.saleId.replace('sale_', '')}` : item.action.replace('auth.', 'موظف: ').replace('payments.', 'ماليات: ')}
                   </div>
                   <div className="text-xs text-muted-foreground mt-0.5">
-                    {type === 'sales' ? `الكاشير: ${item.cashierName}` : item.details}
+                    {type === 'sales' || type === 'returns' ? `الكاشير: ${item.cashierName}` : item.details}
                   </div>
-                  {type !== 'sales' && (
+                  {type !== 'sales' && type !== 'returns' && (
                     <div className="text-[10px] font-semibold text-primary mt-1">
                       بواسطة: {item.actorName}
                     </div>
@@ -223,7 +237,9 @@ function LogList({ items, type, onPrint, icon }: any) {
               </div>
               <div className="flex items-center gap-4">
                 <div className="text-left">
-                    <div className="text-sm font-bold text-foreground" dir="ltr">{type === 'sales' ? formatMoney(item.total) : ''}</div>
+                    <div className={`text-sm font-bold ${type === 'returns' ? 'text-destructive' : 'text-foreground'}`} dir="ltr">
+                      {type === 'sales' ? formatMoney(item.total) : type === 'returns' ? formatMoney(item.totalRefund) : ''}
+                    </div>
                     <div className="text-[10px] text-muted-foreground mt-0.5">{new Date(item.ts).toLocaleString('ar-EG')}</div>
                 </div>
                 {type === 'sales' && (

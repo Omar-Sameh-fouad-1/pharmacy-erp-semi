@@ -62,6 +62,16 @@ export interface Sale {
   cashierName: string;
 }
 
+export interface ReturnSale {
+  id: string;
+  saleId: string;
+  ts: string;
+  items: SaleItem[];
+  totalRefund: number;
+  cashierId: string;
+  cashierName: string;
+}
+
 export interface DailyClosing {
   id: string;
   closedAt: string;
@@ -106,6 +116,7 @@ export interface AppState {
   suppliers: Supplier[];
   medicines: Medicine[];
   sales: Sale[];
+  returns: ReturnSale[]; // المرتجعات
   dailyClosings: DailyClosing[];
   auditLogs: AuditLog[];
   managerSecurity: ManagerSecurity;
@@ -158,6 +169,7 @@ function seed(): AppState {
     ],
     medicines: meds,
     sales: [],
+    returns: [],
     dailyClosings: [],
     auditLogs: [
       { id: uid("a_"), ts: new Date().toISOString(), actorId: adminId, actorName: "Omar Sameh", action: "system.seed", details: "Demo data initialized", severity: "info" },
@@ -368,6 +380,38 @@ export function recordSale(input: { items: SaleItem[]; paymentMethod: PaymentMet
   return { ok: true, sale };
 }
 
+// ---- Returns (المرتجعات) ----
+export function processReturn(saleId: string): { ok: boolean; error?: string } {
+  const st = getState();
+  const sale = st.sales.find(s => s.id === saleId);
+  if (!sale) return { ok: false, error: "الفاتورة غير موجودة" };
+  if (st.returns?.some(r => r.saleId === saleId)) return { ok: false, error: "تم إرجاع الفاتورة مسبقاً" };
+
+  const cu = getCurrentUser();
+  const ret: ReturnSale = {
+    id: uid("ret_"),
+    saleId,
+    ts: new Date().toISOString(),
+    items: sale.items,
+    totalRefund: sale.total,
+    cashierId: cu?.id || "system",
+    cashierName: cu?.fullName || "النظام"
+  };
+  
+  setState(s => ({
+    ...s,
+    sales: s.sales.filter(x => x.id !== saleId), // شيل الفاتورة من مبيعات اليوم
+    returns: [ret, ...(s.returns || [])], // ضيفها في المرتجعات
+    medicines: s.medicines.map(m => {
+      const it = sale.items.find(i => i.medicineId === m.id);
+      return it ? { ...m, quantity: m.quantity + it.qty } : m; // رجع الكمية للمخزن
+    })
+  }));
+  
+  logAudit("sale.return", `إرجاع فاتورة #${saleId.slice(0,8)} بقيمة ${sale.total}`);
+  return { ok: true };
+}
+
 // ---- Daily payments / closing ----
 export function getTodaysSales(): Sale[] {
   const today = todayISO();
@@ -417,14 +461,13 @@ export function deleteUser(id: string) {
   logAudit("user.delete", `Deleted user ${id}`, "warn");
 }
 
-// ---- Notifications (derived + persisted dismissals) ----
+// ---- Notifications ----
 export function computeAlerts(): Notification[] {
   const st = getState();
   const alerts: Notification[] = [];
   for (const m of st.medicines) {
     const days = Math.ceil((new Date(m.expiryDate).getTime() - Date.now()) / 86400000);
     
-    // ترجمة الإشعارات للعربي من هنا
     if (m.quantity <= 10) {
       alerts.push({
         id: `low_${m.id}`,
