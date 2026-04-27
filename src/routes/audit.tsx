@@ -67,7 +67,19 @@ function AuditPage() {
 
   const totalRevenue = filteredSales.reduce((acc, sale) => acc + sale.total, 0);
 
-  // دالة الإرجاع الجزئي (صنف معين)
+  // دالة الإرجاع السريع من القائمة مباشرة
+  const handleQuickReturnFull = (sale: Sale) => {
+    if(confirm(`هل أنت متأكد من إرجاع الفاتورة #${sale.id.replace('sale_', '')} بالكامل للمخزن؟ سيتم خصم قيمتها من المبيعات اليومية.`)){
+       const res = processReturn(sale.id);
+       if(res.ok) {
+          toast.success("تم إرجاع الفاتورة للمخزن بنجاح");
+       } else {
+          toast.error(res.error);
+       }
+    }
+  };
+
+  // دالة الإرجاع الجزئي (صنف معين من داخل التفاصيل)
   const handleReturnItem = (medicineId: string, medicineName: string) => {
     if (!selectedSale) return;
     if (confirm(`هل أنت متأكد من إرجاع الصنف "${medicineName}" للمخزن؟ سيتم خصمه من إجمالي الفاتورة.`)) {
@@ -76,7 +88,7 @@ function AuditPage() {
           toast.success(`تم إرجاع "${medicineName}" بنجاح`);
           const updatedItems = selectedSale.items.filter(i => i.medicineId !== medicineId);
           if (updatedItems.length === 0) {
-            setSelectedSale(null); // قفل الفاتورة لو دي كانت آخر حاجة فيها
+            setSelectedSale(null);
           } else {
             const itemToReturn = selectedSale.items.find(i => i.medicineId === medicineId)!;
             setSelectedSale({
@@ -91,7 +103,7 @@ function AuditPage() {
     }
   };
 
-  // دالة إرجاع الفاتورة كاملة
+  // دالة إرجاع الفاتورة كاملة (من داخل التفاصيل)
   const handleReturnFullSale = () => {
     if(!selectedSale) return;
     if(confirm("هل أنت متأكد من إرجاع هذه الفاتورة بالكامل للمخزن؟")){
@@ -150,7 +162,8 @@ function AuditPage() {
                     </CardContent>
                 </Card>
             </div>
-            <LogList items={filteredSales} type="sales" onPrint={setSelectedSale} />
+            {/* ضفنا هنا onReturn عشان تتبعت للـ LogList */}
+            <LogList items={filteredSales} type="sales" onPrint={setSelectedSale} onReturn={handleQuickReturnFull} />
           </TabsContent>
 
           <TabsContent value="returns" className="mt-4">
@@ -263,7 +276,8 @@ function AuditPage() {
   );
 }
 
-function LogList({ items, type, onPrint, icon }: any) {
+// ضفنا هنا onReturn كـ Prop و عملنا الزرار الخاص بالمرتجع السريع
+function LogList({ items, type, onPrint, onReturn, icon }: any) {
   return (
     <Card>
       <CardContent className="p-0">
@@ -294,7 +308,26 @@ function LogList({ items, type, onPrint, icon }: any) {
                     <div className="text-[10px] text-muted-foreground mt-0.5">{new Date(item.ts).toLocaleString('ar-EG')}</div>
                 </div>
                 {type === 'sales' && (
-                  <Button variant="outline" size="icon" onClick={() => onPrint(item)} className="h-8 w-8 ml-2"><Printer className="w-4 h-4" /></Button>
+                  <div className="flex gap-2 ml-2">
+                    <Button 
+                      variant="outline" 
+                      size="icon" 
+                      onClick={() => onReturn?.(item)} 
+                      className="h-8 w-8 text-destructive border-destructive hover:bg-destructive/10" 
+                      title="إرجاع الفاتورة"
+                    >
+                      <Undo2 className="w-4 h-4" />
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="icon" 
+                      onClick={() => onPrint(item)} 
+                      className="h-8 w-8"
+                      title="طباعة / تفاصيل"
+                    >
+                      <Printer className="w-4 h-4" />
+                    </Button>
+                  </div>
                 )}
               </div>
             </li>
