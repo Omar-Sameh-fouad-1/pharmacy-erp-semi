@@ -23,7 +23,6 @@ function LoginPage() {
 
   useEffect(() => {
     if (currentUserId) {
-      // Manager (admin) must set up PIN first
       const isAdminWithoutPin = !security.setupComplete;
       if (isAdminWithoutPin) {
         navigate({ to: "/security-setup" });
@@ -38,15 +37,16 @@ function LoginPage() {
     setError("");
     const res = login(username.trim(), password);
     if (!res.ok) {
-      setError(res.error);
+      setError(res.error === "Invalid credentials" ? "بيانات الدخول غير صحيحة" : res.error);
       return;
     }
-    toast.success(`Welcome back, ${res.user.fullName}`);
+    toast.success(`أهلاً بك، ${res.user.fullName}`);
   };
 
   return (
     <div
-      className="flex min-h-screen items-center justify-center bg-background p-4"
+      className="flex min-h-screen items-center justify-center bg-background p-4 text-right"
+      dir="rtl"
       style={{
         backgroundImage:
           "radial-gradient(circle at 20% 10%, oklch(0.62 0.22 277 / 0.18), transparent 40%), radial-gradient(circle at 80% 90%, oklch(0.72 0.2 290 / 0.15), transparent 40%)",
@@ -61,24 +61,26 @@ function LoginPage() {
             <Pill className="h-7 w-7" />
           </div>
           <h1 className="text-2xl font-bold tracking-tight">{PHARMACY_NAME}</h1>
-          <p className="text-sm text-muted-foreground">Pharmacy ERP — staff sign in</p>
+          <p className="text-sm text-muted-foreground">نظام الإدارة — تسجيل دخول الموظفين</p>
         </div>
 
         <Card className="border-border/60 p-6 backdrop-blur">
           <form className="space-y-4" onSubmit={onSubmit}>
             <div className="space-y-2">
-              <Label htmlFor="username">Username</Label>
+              <Label htmlFor="username">اسم المستخدم</Label>
               <Input
                 id="username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="admin"
                 autoComplete="username"
+                dir="ltr"
+                className="text-right"
                 required
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">كلمة المرور</Label>
               <Input
                 id="password"
                 type="password"
@@ -86,6 +88,8 @@ function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
                 autoComplete="current-password"
+                dir="ltr"
+                className="text-right"
                 required
               />
             </div>
@@ -95,26 +99,26 @@ function LoginPage() {
               </p>
             )}
             <Button type="submit" className="w-full" size="lg">
-              <LogIn className="mr-2 h-4 w-4" /> Sign in
+              تسجيل الدخول <LogIn className="mr-2 h-4 w-4" />
             </Button>
           </form>
 
           <div className="mt-6 rounded-lg border border-border/60 bg-muted/40 p-3 text-xs text-muted-foreground">
             <div className="mb-1 flex items-center gap-1.5 font-medium text-foreground">
-              <ShieldCheck className="h-3.5 w-3.5" /> Demo accounts
+              <ShieldCheck className="h-3.5 w-3.5" /> حسابات تجريبية
             </div>
             <div>
-              <strong>Admin:</strong> admin / admin123
+              <strong>المدير:</strong> admin / admin123
             </div>
             <div>
-              <strong>Employee:</strong> employee / employee123
+              <strong>صيدلي:</strong> employee / employee123
             </div>
-            <div className="mt-1 italic">No public signup. Admin creates accounts manually.</div>
+            <div className="mt-1 italic">لا يوجد تسجيل عام. المدير ينشئ الحسابات يدوياً.</div>
           </div>
         </Card>
 
         <p className="mt-4 text-center text-xs text-muted-foreground">
-          Frontend-only demo · data persists in your browser
+          نسخة تجريبية — البيانات تحفظ في متصفحك فقط
         </p>
       </div>
     </div>

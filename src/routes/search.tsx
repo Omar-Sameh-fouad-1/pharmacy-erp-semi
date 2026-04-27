@@ -24,22 +24,23 @@ function SearchPage() {
     <AppShell>
       <div className="space-y-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Medicine Search</h1>
-          <p className="text-sm text-muted-foreground">Search across the entire catalog by name or barcode</p>
+          <h1 className="text-2xl font-bold tracking-tight">البحث المتقدم</h1>
+          <p className="text-sm text-muted-foreground">ابحث في كتالوج الأدوية بالكامل بالاسم أو الباركود</p>
         </div>
         <div className="relative">
-          <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          {/* تم تعديل مكان الأيقونة لتناسب الـ RTL */}
+          <SearchIcon className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Type a medicine name or scan a barcode…"
-            className="h-12 pl-10 text-base"
+            placeholder="اكتب اسم الدواء أو امسح الباركود..."
+            className="h-12 pr-10 pl-3 text-base"
             autoFocus
           />
         </div>
 
         <div className="text-sm text-muted-foreground">
-          {results.length} result{results.length === 1 ? "" : "s"}
+          {results.length} {results.length === 1 ? "نتيجة" : "نتائج"}
         </div>
 
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -49,16 +50,7 @@ function SearchPage() {
             const near = days <= NEAR_EXPIRY_DAYS && days >= 0;
             const expired = days < 0;
             return (
-              <Card
-                key={m.id}
-                className={
-                  expired
-                    ? "border-destructive/50"
-                    : low || near
-                      ? "border-warning/50"
-                      : ""
-                }
-              >
+              <Card key={m.id} className={expired ? "border-destructive/50" : low || near ? "border-warning/50" : ""}>
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-center gap-2">
@@ -67,33 +59,31 @@ function SearchPage() {
                       </span>
                       <div>
                         <div className="font-semibold">{m.name}</div>
-                        <div className="font-mono text-xs text-muted-foreground">{m.barcode}</div>
+                        <div className="font-mono text-xs text-muted-foreground text-left" dir="ltr">{m.barcode}</div>
                       </div>
                     </div>
-                    {m.requiresPrescription && (
-                      <Badge variant="outline" className="border-warning/50 text-warning">Rx</Badge>
-                    )}
+                    {m.requiresPrescription && <Badge variant="outline" className="border-warning/50 text-warning">روشتة</Badge>}
                   </div>
-                  <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
+                  <div className="mt-3 grid grid-cols-2 gap-2 text-sm text-right">
                     <div>
-                      <div className="text-xs text-muted-foreground">Quantity</div>
+                      <div className="text-xs text-muted-foreground">الكمية</div>
                       <div className={low ? "font-semibold text-destructive" : "font-medium"}>
-                        {m.quantity} boxes {low && <Badge variant="destructive" className="ml-1">Low</Badge>}
+                        {m.quantity} علبة {low && <Badge variant="destructive" className="mr-1">نواقص</Badge>}
                       </div>
                     </div>
                     <div>
-                      <div className="text-xs text-muted-foreground">Expiry</div>
+                      <div className="text-xs text-muted-foreground">الصلاحية</div>
                       <div className={expired ? "font-semibold text-destructive" : near ? "font-medium text-warning" : "font-medium"}>
                         {m.expiryDate}
-                        <div className="text-xs">{expired ? `${Math.abs(days)}d ago` : `${days}d left`}</div>
+                        <div className="text-xs">{expired ? `منتهي من ${Math.abs(days)} يوم` : `باقي ${days} يوم`}</div>
                       </div>
                     </div>
                     <div>
-                      <div className="text-xs text-muted-foreground">Selling</div>
+                      <div className="text-xs text-muted-foreground">سعر البيع</div>
                       <div className="font-medium">{formatMoney(m.sellingPrice)}</div>
                     </div>
                     <div>
-                      <div className="text-xs text-muted-foreground">Cost</div>
+                      <div className="text-xs text-muted-foreground">سعر الشراء</div>
                       <div className="text-muted-foreground">{formatMoney(m.purchasePrice)}</div>
                     </div>
                   </div>
@@ -103,7 +93,7 @@ function SearchPage() {
           })}
           {results.length === 0 && (
             <div className="md:col-span-2 xl:col-span-3 rounded-lg border border-dashed border-border p-12 text-center text-sm text-muted-foreground">
-              No medicines match your search
+              لا يوجد أدوية تطابق بحثك
             </div>
           )}
         </div>
