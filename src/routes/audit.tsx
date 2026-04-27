@@ -32,15 +32,27 @@ function AuditPage() {
 
   const calculateShift = (logoutLog: AuditLog) => {
     if (!logoutLog.action.includes("logout")) return null;
-    const loginLog = logs.find(l => l.actorId === logoutLog.actorId && l.action.includes("login") && new Date(l.ts) < new Date(logoutLog.ts));
+    
+    const loginLog = logs.find(l => 
+      l.actorId === logoutLog.actorId && 
+      l.action.includes("login") && 
+      new Date(l.ts) < new Date(logoutLog.ts)
+    );
+
     if (!loginLog) return null;
+
     const durationMs = new Date(logoutLog.ts).getTime() - new Date(loginLog.ts).getTime();
     return durationMs / (1000 * 60 * 60); 
   };
 
   const logCategories = useMemo(() => {
     const t = q.toLowerCase();
-    const filtered = logs.filter((l) => l.action.toLowerCase().includes(t) || (l.details || "").toLowerCase().includes(t) || l.actorName.toLowerCase().includes(t));
+    const filtered = logs.filter((l) => 
+      l.action.toLowerCase().includes(t) || 
+      (l.details || "").toLowerCase().includes(t) ||
+      l.actorName.toLowerCase().includes(t)
+    );
+
     return {
       auth: filtered.filter(l => l.action.startsWith('auth.')),
       closing: filtered.filter(l => l.action.includes('close_day') || l.action.includes('payments')),
@@ -109,7 +121,7 @@ function AuditPage() {
             <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight text-primary justify-end">
                مركز الإدارة والمراقبة <ShieldAlert className="h-6 w-6" />
             </h1>
-            <p className="text-sm text-muted-foreground mt-1">تتبع مفصل لنشاط الموظفين وحركة المبيعات والمرتجعات</p>
+            <p className="text-sm text-muted-foreground mt-1">تتبع مفصل لنشاط الموظفين وحركة المبيعات</p>
           </div>
           <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="بحث باسم الموظف أو الحدث..." className="max-w-sm text-right" />
         </div>
@@ -238,7 +250,7 @@ function AuditPage() {
             <div className="mt-4 text-center text-[10px] text-gray-500">الكاشير: {selectedSale?.cashierName}</div>
           </div>
           <DialogFooter className="print:hidden flex-row-reverse justify-between mt-4">
-             {selectedSale && !returns.some((r:any) => r.saleId === selectedSale.id) && (
+             {selectedSale && (
                <Button variant="outline" className="text-destructive hover:bg-destructive/10" onClick={handleReturnFullSale}>
                  إرجاع كل الفاتورة
                </Button>
@@ -274,8 +286,8 @@ function LogList({ items, type, onPrint, icon }: any) {
                   )}
                 </div>
               </div>
-              <div className="flex items-center gap-4 text-right">
-                <div>
+              <div className="flex items-center gap-4">
+                <div className="text-left">
                     <div className={`text-sm font-bold ${type === 'returns' ? 'text-destructive' : 'text-foreground'}`} dir="ltr">
                       {type === 'sales' ? formatMoney(item.total) : type === 'returns' ? formatMoney(item.totalRefund) : ''}
                     </div>
