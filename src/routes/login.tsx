@@ -17,42 +17,54 @@ function LoginPage() {
   const navigate = useNavigate();
   const currentUserId = useStore((s) => s.currentUserId);
   const security = useStore((s) => s.managerSecurity);
-  
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
     if (currentUserId) {
-      if (!security.setupComplete) navigate({ to: "/security-setup" });
-      else navigate({ to: "/" });
+      const isAdminWithoutPin = !security.setupComplete;
+      if (isAdminWithoutPin) {
+        navigate({ to: "/security-setup" });
+      } else {
+        navigate({ to: "/" });
+      }
     }
   }, [currentUserId, security.setupComplete, navigate]);
 
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    
     const res = login(username.trim(), password);
     if (!res.ok) {
-      setError(res.error);
+      setError(res.error === "Invalid credentials" ? "بيانات الدخول غير صحيحة" : res.error);
       return;
     }
     toast.success(`أهلاً بك، ${res.user.fullName}`);
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background p-4 text-right rtl" dir="rtl">
+    <div
+      className="flex min-h-screen items-center justify-center bg-background p-4 text-right"
+      dir="rtl"
+      style={{
+        backgroundImage:
+          "radial-gradient(circle at 20% 10%, oklch(0.62 0.22 277 / 0.18), transparent 40%), radial-gradient(circle at 80% 90%, oklch(0.72 0.2 290 / 0.15), transparent 40%)",
+      }}
+    >
       <div className="w-full max-w-md">
         <div className="mb-6 text-center">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary text-white">
+          <div
+            className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl text-primary-foreground"
+            style={{ background: "var(--gradient-primary)", boxShadow: "var(--shadow-glow)" }}
+          >
             <Pill className="h-7 w-7" />
           </div>
           <h1 className="text-2xl font-bold tracking-tight">{PHARMACY_NAME}</h1>
           <p className="text-sm text-muted-foreground">نظام الإدارة — تسجيل دخول الموظفين</p>
         </div>
 
-        <Card className="border-border/60 p-6 backdrop-blur shadow-xl">
+        <Card className="border-border/60 p-6 backdrop-blur">
           <form className="space-y-4" onSubmit={onSubmit}>
             <div className="space-y-2">
               <Label htmlFor="username">اسم المستخدم</Label>
@@ -61,6 +73,7 @@ function LoginPage() {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="admin"
+                autoComplete="username"
                 dir="ltr"
                 className="text-right"
                 required
@@ -74,28 +87,39 @@ function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
+                autoComplete="current-password"
                 dir="ltr"
                 className="text-right"
                 required
               />
             </div>
             {error && (
-              <p className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive font-medium">
+              <p className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
                 {error}
               </p>
             )}
             <Button type="submit" className="w-full" size="lg">
-              <LogIn className="ml-2 h-4 w-4" /> تسجيل الدخول
+              تسجيل الدخول <LogIn className="mr-2 h-4 w-4" />
             </Button>
           </form>
 
           <div className="mt-6 rounded-lg border border-border/60 bg-muted/40 p-3 text-xs text-muted-foreground">
-            <div className="mb-1 flex items-center justify-start gap-1.5 font-medium text-foreground">
-              <ShieldCheck className="h-3.5 w-3.5" /> تعليمات
+            <div className="mb-1 flex items-center gap-1.5 font-medium text-foreground">
+              <ShieldCheck className="h-3.5 w-3.5" /> حسابات تجريبية
             </div>
-            <p>أدخل اسم المستخدم وكلمة المرور للوصول إلى لوحة التحكم.</p>
+            <div>
+              <strong>المدير:</strong> admin / admin123
+            </div>
+            <div>
+              <strong>صيدلي:</strong> employee / employee123
+            </div>
+            <div className="mt-1 italic">لا يوجد تسجيل عام. المدير ينشئ الحسابات يدوياً.</div>
           </div>
         </Card>
+
+        <p className="mt-4 text-center text-xs text-muted-foreground">
+          نسخة تجريبية — البيانات تحفظ في متصفحك فقط
+        </p>
       </div>
     </div>
   );
